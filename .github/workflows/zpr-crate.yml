@@ -1,0 +1,27 @@
+name: Check, Test and Build zpr crate 
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+  ZPR_CICD_RO_TOKEN: ${{ secrets.ZPR_CICD_RO_TOKEN }}
+
+jobs:
+  build-test-check:
+    name: zpr_crate
+    uses: org-zpr/zpr-dev-tools/.github/workflows/rust-build-test.yml@v1.2
+    
+    with:
+      name: 'zpr_crate'
+      needs-capnp: true
+      features: 'all'
+    secrets: inherit
