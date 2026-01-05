@@ -1,5 +1,5 @@
 
-.PHONY: all build test clean check
+.PHONY: all build test clean check submodules
 
 all: build
 
@@ -14,5 +14,8 @@ check:
 
 clean:
 	cargo clean
+
+submodules:
+	git submodule update --init --recursive
 
 .DEFAULT_GOAL := all
