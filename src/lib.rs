@@ -17,6 +17,8 @@ capnp::generated_code!(pub mod cli_capnp);
 pub mod admin_api {
     pub use super::cli_capnp as v1;
 }
+#[cfg(feature = "admin-api")]
+pub mod adminapi_types;
 
 #[cfg(feature = "policy")]
 capnp::generated_code!(pub mod policy_capnp);
