@@ -12,16 +12,16 @@ zerocopy = { version = "0.8", features = ["derive"] }
 thiserror = "1.0.65"
 vsapi = { git = "https://github.com/org-zpr/zpr-vsapi-rs.git", tag = "v0.4.1", optional = true }
 url = "2.5.4"
-chrono = "0.4.42"
-colored = "3.0.0"
-reqwest = "0.13.1"
-serde = "1.0.228"
+chrono = { version = "0.4.42", optional = true }
+colored = { version = "3.0.0", optional = true }
+reqwest = { version = "0.13.1", optional = true}
+serde = { version = "1.0.228", optional = true }
 
 [build-dependencies]
 capnpc = "0.23"
 
 [features]
-admin-api = ["capnp"]
+admin-api = ["capnp", "chrono", "colored", "reqwest", "serde"]
 policy = ["capnp"]
 vsapi = ["capnp", "dep:vsapi"]
 all = ["admin-api", "policy", "vsapi"]
