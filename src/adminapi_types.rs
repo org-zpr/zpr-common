@@ -4,9 +4,15 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Deserialize)]
-pub struct PolicyListEntry {
-    pub config_id: u64,
+#[derive(Serialize, Deserialize)]
+pub struct ListEntry {
+    pub id: u64,
+}
+
+impl fmt::Display for ListEntry {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {}", format!("{}", "id".dimmed()), self.id,)
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -17,12 +23,24 @@ pub struct PolicyBundle {
     pub container: String,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct VisaListEntry {
-    pub visa_id: u64, // ignored when installing
+impl fmt::Display for PolicyBundle {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} {}, {} {}, {} {}, {} {}",
+            format!("{}", "id".dimmed()),
+            self.config_id,
+            format!("{}", "version".dimmed()),
+            self.version,
+            format!("{}", "format".dimmed()),
+            self.format,
+            format!("{}", "container".dimmed()),
+            self.container,
+        )
+    }
 }
 
-#[derive(Debug, Deserialize, Eq)]
+#[derive(Serialize, Debug, Deserialize, Eq)]
 pub struct VisaDescriptor {
     pub id: u64,
     pub expires: u64, // milliseconds since the epoch
@@ -34,33 +52,6 @@ pub struct VisaDescriptor {
     pub source_port: String,
     pub dest_port: String,
     pub proto: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Revokes {
-    pub identifier: String,
-    pub revoked_visa: Vec<u64>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ActorsListEntry {
-    pub cn: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ActorDescriptor {
-    pub cn: String,
-    pub ctime: u64, // milliseconds since the epoch
-    pub ident: String,
-    pub node: bool,
-    pub zpr_addr: String,
-    pub node_details: NodeRecordBrief,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ServiceDescriptor {
-    pub id: u64,
-    pub actor_id: u64,
 }
 
 impl PartialEq for VisaDescriptor {
@@ -79,93 +70,6 @@ impl PartialOrd for VisaDescriptor {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq)]
-#[allow(dead_code)]
-pub struct HostRecordBrief {
-    pub ctime: i64, // unix SECONDS (not millis)
-    pub cn: String,
-    pub zpr_addr: String,
-    pub ident: String,
-    pub node: bool,
-}
-
-impl PartialEq for HostRecordBrief {
-    fn eq(&self, other: &Self) -> bool {
-        self.cn == other.cn
-    }
-}
-
-impl Ord for HostRecordBrief {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.cn.cmp(&other.cn)
-    }
-}
-
-impl PartialOrd for HostRecordBrief {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct NodeRecordBrief {
-    pub pending: u32,
-    pub ctime: i64,
-    pub last_contact: i64, // unix SECONDS
-    pub visa_requests: u64,
-    pub connect_requests: u64,
-    pub cn: String,
-    pub zpr_addr: String,
-    pub in_sync: bool,
-}
-
-/// For those actors with services, this is just a [HostRecordBrief] with a
-/// services list on it.
-#[derive(Debug, Deserialize, Eq)]
-#[allow(dead_code)]
-pub struct ServiceRecord {
-    pub ctime: i64, // unix SECONDS (not millis)
-    pub cn: String,
-    pub zpr_addr: String,
-    pub ident: String,
-    pub node: bool,
-    pub services: Vec<String>,
-}
-
-impl PartialEq for ServiceRecord {
-    fn eq(&self, other: &Self) -> bool {
-        self.cn == other.cn
-    }
-}
-
-impl Ord for ServiceRecord {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.cn.cmp(&other.cn)
-    }
-}
-
-impl PartialOrd for ServiceRecord {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct RevokeResponse {
-    pub revoked: String,
-    pub count: u32,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct RevokeAdminRequest {
-    pub clear_all: bool,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct RevokeAdminResponse {
-    pub clear_count: u32,
 }
 
 impl fmt::Display for VisaDescriptor {
@@ -211,6 +115,102 @@ impl fmt::Display for VisaDescriptor {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Revokes {
+    pub id: String,
+    pub revoked: Vec<u64>,
+}
+
+impl fmt::Display for Revokes {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} {} {} {:?}",
+            format!("{}", "id".dimmed()),
+            self.id,
+            format!("{}", "revoked".dimmed()),
+            self.revoked
+        )
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ActorDescriptor {
+    pub cn: String,
+    pub ctime: u64, // milliseconds since the epoch
+    pub ident: String,
+    pub node: bool,
+    pub zpr_addr: String,
+    pub node_details: NodeRecordBrief,
+}
+
+impl fmt::Display for ActorDescriptor {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let ts: DateTime<Utc> = DateTime::from_timestamp(self.ctime as i64, 0).unwrap();
+        write!(
+            f,
+            "{} {}{}{} @ {} {}{} {}{} {}",
+            self.cn,
+            "(created: ".dimmed(),
+            ts.to_rfc3339_opts(SecondsFormat::Secs, true).cyan(),
+            ")".dimmed(),
+            self.zpr_addr.yellow(),
+            "identity: ".dimmed(),
+            self.ident,
+            "is node: ".dimmed(),
+            self.node,
+            self.node_details,
+        )
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ServiceDescriptor {
+    pub id: u64,
+    pub actor_id: u64,
+}
+
+impl fmt::Display for ServiceDescriptor {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} {} {} {:?}",
+            format!("{}", "id".dimmed()),
+            self.id,
+            format!("{}", "actor id".dimmed()),
+            self.actor_id
+        )
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq)]
+#[allow(dead_code)]
+pub struct HostRecordBrief {
+    pub ctime: i64, // unix SECONDS (not millis)
+    pub cn: String,
+    pub zpr_addr: String,
+    pub ident: String,
+    pub node: bool,
+}
+
+impl PartialEq for HostRecordBrief {
+    fn eq(&self, other: &Self) -> bool {
+        self.cn == other.cn
+    }
+}
+
+impl Ord for HostRecordBrief {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.cn.cmp(&other.cn)
+    }
+}
+
+impl PartialOrd for HostRecordBrief {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl fmt::Display for HostRecordBrief {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ts: DateTime<Utc> = DateTime::from_timestamp(self.ctime, 0).unwrap();
@@ -231,43 +231,23 @@ impl fmt::Display for HostRecordBrief {
     }
 }
 
-impl fmt::Display for ServiceRecord {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for svc in &self.services {
-            write!(
-                f,
-                "{:<36}  {}  @ {} {}\n",
-                svc,
-                self.cn.cyan(),
-                self.zpr_addr.yellow(),
-                if self.node {
-                    "[node]".green()
-                } else {
-                    "".normal()
-                },
-            )?;
-        }
-        Ok(())
-    }
+#[derive(Serialize, Deserialize)]
+pub struct NodeRecordBrief {
+    pub pending: u32,
+    pub last_contact: i64, // unix SECONDS
+    pub visa_requests: u64,
+    pub connect_requests: u64,
+    pub in_sync: bool,
 }
 
 impl fmt::Display for NodeRecordBrief {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let ts: DateTime<Utc> = DateTime::from_timestamp(self.ctime, 0).unwrap();
         let last_contact: DateTime<Utc> = DateTime::from_timestamp(self.last_contact, 0).unwrap();
         write!(
             f,
-            "{} {}{}{} @ {} {} {} {} {}",
-            self.cn,
-            "(created: ".dimmed(),
-            ts.to_rfc3339_opts(SecondsFormat::Secs, true).cyan(),
-            ")".dimmed(),
-            self.zpr_addr.yellow(),
-            if self.pending > 0 {
-                format!("[{} pending]", self.pending).red()
-            } else {
-                "".normal()
-            },
+            "{}{} {} {} {}",
+            "pending: ".dimmed(),
+            self.pending,
             format!(
                 "{}{}",
                 "SYNC:".dimmed(),
@@ -301,6 +281,55 @@ impl fmt::Display for NodeRecordBrief {
                 ),
             ),
         )
+    }
+}
+
+#[derive(Debug, Deserialize, Eq)]
+#[allow(dead_code)]
+pub struct ServiceRecord {
+    pub ctime: i64, // unix SECONDS (not millis)
+    pub cn: String,
+    pub zpr_addr: String,
+    pub ident: String,
+    pub node: bool,
+    pub services: Vec<String>,
+}
+
+impl fmt::Display for ServiceRecord {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for svc in &self.services {
+            write!(
+                f,
+                "{:<36}  {}  @ {} {}\n",
+                svc,
+                self.cn.cyan(),
+                self.zpr_addr.yellow(),
+                if self.node {
+                    "[node]".green()
+                } else {
+                    "".normal()
+                },
+            )?;
+        }
+        Ok(())
+    }
+}
+
+impl PartialEq for ServiceRecord {
+    fn eq(&self, other: &Self) -> bool {
+        self.cn == other.cn
+    }
+}
+
+impl Ord for ServiceRecord {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.cn.cmp(&other.cn)
+    }
+}
+
+impl PartialOrd for ServiceRecord {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
