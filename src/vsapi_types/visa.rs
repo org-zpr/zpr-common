@@ -1,3 +1,4 @@
+use std::io::Cursor;
 use std::net::IpAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -115,6 +116,14 @@ impl Visa {
             session_key,
             cons,
         }
+    }
+
+    pub fn from_capnp_bytes(bytes: &[u8]) -> Result<Self, VsapiTypeError> {
+        let mut cur = Cursor::new(bytes);
+        let reader =
+            capnp::serialize::read_message(&mut cur, capnp::message::ReaderOptions::new())?;
+        let visa_reader = reader.get_root::<v1::visa::Reader>()?;
+        Visa::try_from(visa_reader)
     }
 
     /// Get the FiveTuple from a Visa

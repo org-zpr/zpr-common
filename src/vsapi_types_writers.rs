@@ -2,7 +2,7 @@ use std::net::IpAddr;
 
 use crate::vsapi::v1;
 use crate::vsapi_types::{
-    CommFlag, DockPep, EndpointT, IcmpPep, KeySet, PacketDesc, TcpUdpPep, Visa,
+    CommFlag, DockPep, EndpointT, IcmpPep, KeySet, PacketDesc, TcpUdpPep, Visa, VisaOp,
 };
 
 /// A trait for writing to a builder type. This is the pattern used to write Cap'n Proto messages.
@@ -99,6 +99,20 @@ impl WriteTo<v1::packet_desc::Builder<'_>> for PacketDesc {
             CommFlag::BiDirectional => bldr.set_comm_type(v1::CommType::Bidirectional),
             CommFlag::UniDirectional => bldr.set_comm_type(v1::CommType::Unidirectional),
             CommFlag::ReRequest(_) => bldr.set_comm_type(v1::CommType::Rerequest),
+        }
+    }
+}
+
+impl WriteTo<v1::visa_op::Builder<'_>> for VisaOp {
+    fn write_to(&self, bldr: &mut v1::visa_op::Builder<'_>) {
+        match self {
+            VisaOp::Grant(v) => {
+                let mut grant_bldr = bldr.reborrow().init_grant();
+                v.write_to(&mut grant_bldr);
+            }
+            VisaOp::RevokeVisaId(id) => {
+                bldr.set_revoke_visa_id(*id);
+            }
         }
     }
 }
