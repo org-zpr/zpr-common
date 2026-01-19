@@ -13,6 +13,7 @@ mod response;
 mod services;
 mod util;
 mod visa;
+mod vsnet;
 
 // PUBLIC API EXPORTS
 pub use auth::{AuthBlob, AuthCodeBlob, ChallengeAlg, ZprSelfSignedBlob};
@@ -26,6 +27,7 @@ pub use util::time::visa_expiration_timestamp_to_system_time;
 pub use visa::{
     Constraints, DockPep, EndpointT, IcmpPep, KeyFormat, KeySet, TcpUdpPep, Visa, VisaOp,
 };
+pub use vsnet::SockAddr;
 
 #[cfg(test)]
 mod tests {

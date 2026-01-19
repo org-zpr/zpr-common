@@ -1,3 +1,4 @@
+use std::io::Cursor;
 use std::net::IpAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -66,6 +67,7 @@ pub enum KeyFormat {
     ZprKF01,
 }
 
+#[derive(Debug)]
 pub enum VisaOp {
     Grant(Visa),
     RevokeVisaId(u64),
@@ -115,6 +117,14 @@ impl Visa {
             session_key,
             cons,
         }
+    }
+
+    pub fn from_capnp_bytes(bytes: &[u8]) -> Result<Self, VsapiTypeError> {
+        let mut cur = Cursor::new(bytes);
+        let reader =
+            capnp::serialize::read_message(&mut cur, capnp::message::ReaderOptions::new())?;
+        let visa_reader = reader.get_root::<v1::visa::Reader>()?;
+        Visa::try_from(visa_reader)
     }
 
     /// Get the FiveTuple from a Visa
@@ -227,6 +237,22 @@ impl TryFrom<v1::visa::Reader<'_>> for Visa {
             session_key,
             cons,
         })
+    }
+}
+
+impl TryFrom<v1::visa_op::Reader<'_>> for VisaOp {
+    type Error = VsapiTypeError;
+
+    /// Returns err if required values are not set or if values are badly formatted
+    fn try_from(reader: v1::visa_op::Reader) -> Result<Self, Self::Error> {
+        match reader.which()? {
+            v1::visa_op::Which::Grant(visa_result) => {
+                let visa_reader = visa_result?;
+                let visa = Visa::try_from(visa_reader)?;
+                Ok(VisaOp::Grant(visa))
+            }
+            v1::visa_op::Which::RevokeVisaId(issuer_id) => Ok(VisaOp::RevokeVisaId(issuer_id)),
+        }
     }
 }
 

@@ -1,3 +1,4 @@
+use std::fmt;
 use std::net::IpAddr;
 
 use crate::vsapi::v1;
@@ -68,6 +69,12 @@ pub enum ErrorCode {
 impl Denied {
     pub fn new(code: DenyCode, reason: Option<String>) -> Self {
         Self { code, reason }
+    }
+}
+
+impl fmt::Display for DenyCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
