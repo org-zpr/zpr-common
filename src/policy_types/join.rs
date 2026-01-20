@@ -1,7 +1,7 @@
 use crate::policy::v1;
-use crate::policy_types::writer::{WriteTo, write_attributes};
-
 use crate::policy_types::attribute::Attribute;
+use crate::policy_types::error::PolicyTypeError;
+use crate::policy_types::writer::{WriteTo, write_attributes};
 
 pub struct JoinPolicy {
     pub conditions: Vec<Attribute>,
@@ -49,6 +49,57 @@ pub struct PFlags {
     pub node: bool,
     pub vs: bool,
     pub vs_dock: bool,
+}
+
+impl TryFrom<v1::service::Reader<'_>> for Service {
+    type Error = PolicyTypeError;
+
+    fn try_from(reader: v1::service::Reader<'_>) -> Result<Self, Self::Error> {
+        let id = reader.get_id()?.to_string()?;
+        let mut endpoints = Vec::new();
+        let endpoint_list = reader.get_endpoints()?;
+        for endpoint_reader in endpoint_list.iter() {
+            let scope = Scope::try_from(endpoint_reader)?;
+            endpoints.push(scope);
+        }
+
+        let kind = match reader.get_kind().which()? {
+            v1::service::kind::Regular(()) => ServiceType::Regular,
+            v1::service::kind::Trusted(name) => ServiceType::Trusted(name?.to_string()?),
+            v1::service::kind::Auth(()) => ServiceType::Authentication,
+            v1::service::kind::Visa(()) => ServiceType::Visa,
+            v1::service::kind::Builtin(()) => ServiceType::BuiltIn,
+        };
+        Ok(Service {
+            id,
+            endpoints,
+            kind,
+        })
+    }
+}
+
+impl TryFrom<v1::scope::Reader<'_>> for Scope {
+    type Error = PolicyTypeError;
+
+    fn try_from(reader: v1::scope::Reader<'_>) -> Result<Self, Self::Error> {
+        let protocol = reader.get_protocol();
+        let flag = match reader.get_flag() {
+            Ok(v1::ScopeFlag::NoFlag) => None,
+            Ok(v1::ScopeFlag::UdpOneWay) => Some(ScopeFlag::UdpOneWay),
+            Ok(v1::ScopeFlag::IcmpRequestRepl) => Some(ScopeFlag::IcmpRequestReply),
+            Err(capnp::NotInSchema(_)) => None,
+        };
+        let (port, port_range) = match reader.which()? {
+            v1::scope::Port(pnum) => (Some(pnum.get_port_num()), None),
+            v1::scope::PortRange(pr) => (None, Some((pr.get_low(), pr.get_high()))),
+        };
+        Ok(Scope {
+            protocol,
+            flag,
+            port,
+            port_range,
+        })
+    }
 }
 
 impl PFlags {
