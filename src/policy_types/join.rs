@@ -1,7 +1,8 @@
 use crate::policy::v1;
 use crate::policy_types::attribute::Attribute;
 use crate::policy_types::error::PolicyTypeError;
-use crate::policy_types::writer::{WriteTo, write_attributes};
+use crate::policy_types::writer::write_attributes;
+use crate::write_to::WriteTo;
 
 pub struct JoinPolicy {
     pub conditions: Vec<Attribute>,

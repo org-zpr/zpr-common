@@ -2,13 +2,10 @@ use std::net::IpAddr;
 
 use crate::vsapi::v1;
 use crate::vsapi_types::{
-    CommFlag, DockPep, EndpointT, IcmpPep, KeySet, PacketDesc, TcpUdpPep, Visa, VisaOp,
+    CommFlag, DockPep, EndpointT, IcmpPep, KeySet, PacketDesc, ServiceDescriptor, TcpUdpPep, Visa,
+    VisaOp,
 };
-
-/// A trait for writing to a builder type. This is the pattern used to write Cap'n Proto messages.
-pub trait WriteTo<Bldr> {
-    fn write_to(&self, bldr: &mut Bldr);
-}
+use crate::write_to::WriteTo;
 
 impl WriteTo<v1::ip_addr::Builder<'_>> for IpAddr {
     fn write_to(&self, bldr: &mut v1::ip_addr::Builder<'_>) {
@@ -114,5 +111,15 @@ impl WriteTo<v1::visa_op::Builder<'_>> for VisaOp {
                 bldr.set_revoke_visa_id(*id);
             }
         }
+    }
+}
+
+impl WriteTo<v1::service_descriptor::Builder<'_>> for ServiceDescriptor {
+    fn write_to(&self, bldr: &mut v1::service_descriptor::Builder<'_>) {
+        bldr.set_stype(v1::ServiceT::ActorAuthentication);
+        bldr.set_service_id(self.service_id.clone());
+        bldr.set_service_uri(self.service_uri.clone());
+        let mut ip_bldr = bldr.reborrow().init_zpr_addr();
+        self.zpr_addr.write_to(&mut ip_bldr);
     }
 }

@@ -2,6 +2,7 @@ use std::fmt;
 use std::net::IpAddr;
 
 use crate::vsapi::v1;
+use crate::vsapi_types::error::{ApiResponseError, ErrorCode};
 use crate::vsapi_types::util::ip::ip_addr_from_vec;
 use crate::vsapi_types::{Visa, VsapiTypeError};
 
@@ -17,7 +18,7 @@ pub struct Connection {
 pub enum VisaResponse {
     Allow(Visa),
     Deny(Denied),
-    VSApiError(VisaResponseError),
+    VSApiError(ApiResponseError),
 }
 
 /// Denial information
@@ -41,31 +42,6 @@ pub enum DenyCode {
     QuotaExceeded,
 }
 
-/// Error information
-#[derive(Debug)]
-pub struct VisaResponseError {
-    pub code: ErrorCode,
-    pub message: String,
-    pub retry_in: u32,
-}
-
-/// Denial code, match the codes in vs.capnp, except for Fail and UnknownStatusCode
-#[derive(Debug)]
-pub enum ErrorCode {
-    Internal,
-    AuthRequired,
-    InvalidOperation,
-    OutOfSync,
-    NotFound,
-    InvalidSignature,
-    QuotaExceeded,
-    TemporarilyUnavailable,
-    AuthError,
-    ParamError,
-    UnknownStatusCode,
-    Fail,
-}
-
 impl Denied {
     pub fn new(code: DenyCode, reason: Option<String>) -> Self {
         Self { code, reason }
@@ -75,16 +51,6 @@ impl Denied {
 impl fmt::Display for DenyCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
-    }
-}
-
-impl VisaResponseError {
-    pub fn new(code: ErrorCode, message: String, retry_in: u32) -> Self {
-        Self {
-            code,
-            message,
-            retry_in,
-        }
     }
 }
 
