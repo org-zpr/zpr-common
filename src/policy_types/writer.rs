@@ -1,11 +1,6 @@
 use crate::policy::v1;
 use crate::policy_types::attribute::Attribute;
 
-/// A trait for writing to a builder type. This is the pattern used to write Cap'n Proto messages.
-pub trait WriteTo<Bldr> {
-    fn write_to(&self, bldr: &mut Bldr);
-}
-
 /// Helper to write attributes into capnp AttrExpr list.
 /// We have to do this for client conditions and service conditions.
 pub fn write_attributes(
