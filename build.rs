@@ -1,11 +1,5 @@
 fn main() {
     capnpc::CompilerCommand::new()
-        .src_prefix("zpr-admin-api")
-        .file("zpr-admin-api/cli.capnp")
-        .run()
-        .expect("failed to compile zpr-admin-api capnp schema");
-
-    capnpc::CompilerCommand::new()
         .src_prefix("zpr-policy")
         .file("zpr-policy/policy.capnp")
         .run()
