@@ -34,3 +34,20 @@ impl TryFrom<v1::sock_addr::Reader<'_>> for SockAddr {
         Ok(SockAddr { addr, port })
     }
 }
+
+impl TryFrom<v1::ip_addr::Reader<'_>> for IpAddr {
+    type Error = VsapiTypeError;
+
+    fn try_from(reader: v1::ip_addr::Reader<'_>) -> Result<Self, Self::Error> {
+        match reader.which()? {
+            v1::ip_addr::V4(ipv4) => {
+                let octets: [u8; 4] = ipv4?.try_into()?;
+                Ok(IpAddr::V4(Ipv4Addr::from(octets)))
+            }
+            v1::ip_addr::V6(ipv6) => {
+                let octets: [u8; 16] = ipv6?.try_into()?;
+                Ok(IpAddr::V6(Ipv6Addr::from(octets)))
+            }
+        }
+    }
+}

@@ -5,6 +5,8 @@ use url::Url;
 use crate::vsapi_types::VsapiTypeError;
 use crate::vsapi_types::util::ip::ip_addr_from_vec;
 
+use crate::vsapi::v1;
+
 /// Capnp does not have a separate AuthServicesList structure, instead just uses List(ServiceDescriptor)
 #[derive(Debug, Clone)]
 pub struct AuthServicesList {
@@ -115,6 +117,26 @@ impl TryFrom<vsapi::ServiceDescriptor> for ServiceDescriptor {
         Ok(ServiceDescriptor {
             service_id: value.service_id.unwrap_or_default(),
             service_uri: value.uri.unwrap_or_default(),
+            zpr_addr,
+        })
+    }
+}
+
+impl TryFrom<v1::service_descriptor::Reader<'_>> for ServiceDescriptor {
+    type Error = VsapiTypeError;
+
+    fn try_from(reader: v1::service_descriptor::Reader<'_>) -> Result<Self, Self::Error> {
+        let svc_id = reader.get_service_id()?.to_string()?;
+        let svc_uri = reader.get_service_uri()?.to_string()?;
+        let zpr_addr = IpAddr::try_from(reader.get_zpr_addr()?)?;
+
+        match reader.get_stype()? {
+            v1::ServiceT::ActorAuthentication => {}
+        }
+
+        Ok(ServiceDescriptor {
+            service_id: svc_id,
+            service_uri: svc_uri,
             zpr_addr,
         })
     }
