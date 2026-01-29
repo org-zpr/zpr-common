@@ -2,8 +2,8 @@ use std::net::IpAddr;
 
 use crate::vsapi::v1;
 use crate::vsapi_types::{
-    CommFlag, DockPep, EndpointT, IcmpPep, KeySet, PacketDesc, ServiceDescriptor, TcpUdpPep, Visa,
-    VisaOp,
+    ApiResponseError, CommFlag, DockPep, EndpointT, IcmpPep, KeySet, PacketDesc, ServiceDescriptor,
+    TcpUdpPep, Visa, VisaOp,
 };
 use crate::write_to::WriteTo;
 
@@ -121,5 +121,13 @@ impl WriteTo<v1::service_descriptor::Builder<'_>> for ServiceDescriptor {
         bldr.set_service_uri(self.service_uri.clone());
         let mut ip_bldr = bldr.reborrow().init_zpr_addr();
         self.zpr_addr.write_to(&mut ip_bldr);
+    }
+}
+
+impl WriteTo<v1::error::Builder<'_>> for ApiResponseError {
+    fn write_to(&self, bldr: &mut v1::error::Builder<'_>) {
+        bldr.set_code(self.code.clone().into());
+        bldr.set_message(&self.message);
+        bldr.set_retry_in(self.retry_in);
     }
 }

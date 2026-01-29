@@ -33,7 +33,7 @@ pub struct ApiResponseError {
 }
 
 /// Denial code, match the codes in vs.capnp, except for Fail and UnknownStatusCode
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ErrorCode {
     Internal,
     AuthRequired,
@@ -50,11 +50,20 @@ pub enum ErrorCode {
 }
 
 impl ApiResponseError {
-    pub fn new(code: ErrorCode, message: String, retry_in: u32) -> Self {
+    pub fn new<S: Into<String>>(code: ErrorCode, message: S, retry_in: u32) -> Self {
         Self {
             code,
-            message,
+            message: message.into(),
             retry_in,
+        }
+    }
+
+    /// Sets retry value to 0.
+    pub fn new_code_msg<S: Into<String>>(code: ErrorCode, message: S) -> Self {
+        Self {
+            code,
+            message: message.into(),
+            retry_in: 0,
         }
     }
 }
@@ -82,5 +91,26 @@ impl TryFrom<v1::error::Reader<'_>> for ApiResponseError {
             message,
             retry_in,
         })
+    }
+}
+
+impl Into<v1::ErrorCode> for ErrorCode {
+    fn into(self) -> v1::ErrorCode {
+        match self {
+            ErrorCode::Internal => v1::ErrorCode::Internal,
+            ErrorCode::AuthRequired => v1::ErrorCode::AuthRequired,
+            ErrorCode::InvalidOperation => v1::ErrorCode::InvalidOperation,
+            ErrorCode::OutOfSync => v1::ErrorCode::OutOfSync,
+            ErrorCode::NotFound => v1::ErrorCode::NotFound,
+            ErrorCode::InvalidSignature => v1::ErrorCode::InvalidSignature,
+            ErrorCode::QuotaExceeded => v1::ErrorCode::QuotaExceeded,
+            ErrorCode::TemporarilyUnavailable => v1::ErrorCode::TemporarilyUnavailable,
+            ErrorCode::AuthError => v1::ErrorCode::AuthError,
+            ErrorCode::ParamError => v1::ErrorCode::ParamError,
+
+            // These are not 1:1 mapped to IDL.
+            ErrorCode::UnknownStatusCode => v1::ErrorCode::Internal,
+            ErrorCode::Fail => v1::ErrorCode::Internal,
+        }
     }
 }
