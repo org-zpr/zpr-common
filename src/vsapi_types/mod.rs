@@ -17,10 +17,10 @@ mod vsnet;
 mod writer;
 
 // PUBLIC API EXPORTS
-pub use auth::{AuthBlobV1, AuthBlobs, AuthCodeBlob, ChallengeAlg, SelfSignedBlob};
+pub use auth::{AuthBlob, AuthCodeBlob, ChallengeAlg, SelfSignedBlob};
 pub use error::{ApiResponseError, ErrorCode, VsapiTypeError};
 pub use packet::{CommFlag, PacketDesc, VsapiFiveTuple, VsapiIpProtocol, vsapi_ip_number};
-pub use request::{Claim, ConnectRequest};
+pub use request::{Claim, ConnectRequest, ConnectRequestV1};
 pub use response::{Connection, Denied, DenyCode, VisaResponse};
 pub use services::{AuthServicesList, ServiceDescriptor};
 pub use util::ip::ip_addr_from_vec;

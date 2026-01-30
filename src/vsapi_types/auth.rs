@@ -1,29 +1,10 @@
 use std::net::IpAddr;
 
-#[derive(Debug)]
-pub enum AuthBlobs {
-    V1(AuthBlobV1),
-    V2(Vec<AuthBlobV2>),
-}
-
 /// Blob passed with a ConnectRequest
 #[derive(Debug)]
-pub enum AuthBlobV2 {
+pub enum AuthBlob {
     SS(SelfSignedBlob),
     AC(AuthCodeBlob),
-}
-
-#[derive(Debug)]
-pub struct AuthBlobV1 {
-    pub challenge_responses: Vec<Vec<u8>>,
-}
-
-impl AuthBlobV1 {
-    pub fn new(challenge_responses: Vec<Vec<u8>>) -> Self {
-        Self {
-            challenge_responses,
-        }
-    }
 }
 
 #[derive(Debug, Default)]

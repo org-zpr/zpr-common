@@ -1,18 +1,25 @@
 use std::collections::BTreeMap;
 use std::net::IpAddr;
 
-use crate::vsapi_types::AuthBlobs;
+use crate::vsapi_types::AuthBlob;
 use crate::vsapi_types::VsapiTypeError;
-use crate::vsapi_types::auth::AuthBlobV1;
 use crate::vsapi_types::util::ip::ip_addr_from_vec;
 
 /// Request to connect to VS
 #[derive(Debug)]
 pub struct ConnectRequest {
-    pub blobs: AuthBlobs,
+    pub blobs: Vec<AuthBlob>,
     pub claims: Vec<Claim>,
     pub substrate_addr: IpAddr,
     pub dock_interface: u8,
+}
+
+#[derive(Debug)]
+pub struct ConnectRequestV1 {
+    pub challenge_responses: Vec<Vec<u8>>,
+    pub claims: Vec<Claim>,
+    pub dock_addr: IpAddr,
+    pub connection_id: i32,
 }
 
 #[derive(Debug)]
@@ -27,12 +34,12 @@ impl Claim {
     }
 }
 
-impl TryFrom<vsapi::ConnectRequest> for ConnectRequest {
+impl TryFrom<vsapi::ConnectRequest> for ConnectRequestV1 {
     type Error = VsapiTypeError;
 
     /// Returns error if all fields are not set
     fn try_from(thrift_req: vsapi::ConnectRequest) -> Result<Self, Self::Error> {
-        let substrate_addr = match thrift_req.dock_addr {
+        let dock_addr = match thrift_req.dock_addr {
             Some(val) => ip_addr_from_vec(val)?,
             None => return Err(VsapiTypeError::DeserializationError("No dock addr")),
         };
@@ -46,48 +53,50 @@ impl TryFrom<vsapi::ConnectRequest> for ConnectRequest {
             }
             None => return Err(VsapiTypeError::DeserializationError("No claims")),
         };
-        let blobs = match thrift_req.challenge_responses {
-            Some(cr) => AuthBlobs::V1(AuthBlobV1::new(cr)),
+        let challenge_responses = match thrift_req.challenge_responses {
+            Some(cr) => cr,
             None => {
                 return Err(VsapiTypeError::DeserializationError(
                     "No challenge responses",
                 ));
             }
         };
+
+        let connection_id = match thrift_req.connection_id {
+            Some(id) => id,
+            None => return Err(VsapiTypeError::DeserializationError("No connection_id")),
+        };
+
         Ok(Self {
-            blobs,
+            challenge_responses,
             claims,
-            substrate_addr,
-            dock_interface: 0,
+            dock_addr,
+            connection_id,
         })
     }
 }
 
-impl TryFrom<ConnectRequest> for vsapi::ConnectRequest {
+impl TryFrom<ConnectRequestV1> for vsapi::ConnectRequest {
     type Error = VsapiTypeError;
 
     /// Returns an error if blob type is incorrect
-    fn try_from(req: ConnectRequest) -> Result<Self, Self::Error> {
+    fn try_from(req: ConnectRequestV1) -> Result<Self, Self::Error> {
         let mut claims = BTreeMap::new();
         for claim in req.claims {
             claims.insert(claim.key, claim.value);
         }
 
-        let challenge_responses = match req.blobs {
-            AuthBlobs::V1(v1_blobs) => v1_blobs.challenge_responses,
-            AuthBlobs::V2(_) => {
-                return Err(VsapiTypeError::DeserializationError(
-                    "Incorrect blob type, expected V1",
-                ));
-            }
-        };
+        let challenge_responses = req.challenge_responses;
 
-        let dock_addr = match req.substrate_addr {
+        let dock_addr = match req.dock_addr {
             IpAddr::V4(addr) => addr.octets().to_vec(),
             IpAddr::V6(addr) => addr.octets().to_vec(),
         };
+
+        let connection_id = req.connection_id;
+
         Ok(Self {
-            connection_id: Some(0),
+            connection_id: Some(connection_id),
             dock_addr: Some(dock_addr),
             claims: Some(claims),
             challenge: None,
