@@ -3,12 +3,12 @@ use std::net::IpAddr;
 /// Blob passed with a ConnectRequest
 #[derive(Debug)]
 pub enum AuthBlob {
-    SS(ZprSelfSignedBlob),
+    SS(SelfSignedBlob),
     AC(AuthCodeBlob),
 }
 
 #[derive(Debug, Default)]
-pub struct ZprSelfSignedBlob {
+pub struct SelfSignedBlob {
     pub alg: ChallengeAlg,
     pub challenge: Vec<u8>,
     pub cn: String,
