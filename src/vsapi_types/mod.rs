@@ -17,7 +17,7 @@ mod vsnet;
 mod writer;
 
 // PUBLIC API EXPORTS
-pub use auth::{AuthBlob, AuthCodeBlob, ChallengeAlg, ZprSelfSignedBlob};
+pub use auth::{AuthBlobV1, AuthBlobs, AuthCodeBlob, ChallengeAlg, SelfSignedBlob};
 pub use error::{ApiResponseError, ErrorCode, VsapiTypeError};
 pub use packet::{CommFlag, PacketDesc, VsapiFiveTuple, VsapiIpProtocol, vsapi_ip_number};
 pub use request::{Claim, ConnectRequest};

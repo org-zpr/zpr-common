@@ -1,15 +1,15 @@
 use std::collections::BTreeMap;
 use std::net::IpAddr;
 
-use crate::vsapi_types::AuthBlob;
+use crate::vsapi_types::AuthBlobs;
 use crate::vsapi_types::VsapiTypeError;
-use crate::vsapi_types::ZprSelfSignedBlob;
+use crate::vsapi_types::auth::AuthBlobV1;
 use crate::vsapi_types::util::ip::ip_addr_from_vec;
 
 /// Request to connect to VS
 #[derive(Debug)]
 pub struct ConnectRequest {
-    pub blobs: Vec<AuthBlob>,
+    pub blobs: AuthBlobs,
     pub claims: Vec<Claim>,
     pub substrate_addr: IpAddr,
     pub dock_interface: u8,
@@ -47,15 +47,9 @@ impl TryFrom<vsapi::ConnectRequest> for ConnectRequest {
             None => return Err(VsapiTypeError::DeserializationError("No claims")),
         };
         let blobs = match thrift_req.challenge_responses {
-            Some(cr) => {
-                let mut b = Vec::new();
-                for r in cr {
-                    let mut ss = ZprSelfSignedBlob::default();
-                    ss.challenge = r;
-                    b.push(AuthBlob::SS(ss))
-                }
-                b
-            }
+            Some(cr) => AuthBlobs::V1(AuthBlobV1 {
+                challenge_responses: cr,
+            }),
             None => {
                 return Err(VsapiTypeError::DeserializationError(
                     "No challenge responses",
@@ -81,15 +75,14 @@ impl TryFrom<ConnectRequest> for vsapi::ConnectRequest {
             claims.insert(claim.key, claim.value);
         }
 
-        let mut challenge_responses = Vec::new();
-        for blob in req.blobs {
-            match blob {
-                AuthBlob::SS(ss) => challenge_responses.push(ss.challenge),
-                AuthBlob::AC(_) => {
-                    return Err(VsapiTypeError::DeserializationError("Incorrect blob type"));
-                }
+        let challenge_responses = match req.blobs {
+            AuthBlobs::V1(v1_blobs) => v1_blobs.challenge_responses,
+            AuthBlobs::V2(_) => {
+                return Err(VsapiTypeError::DeserializationError(
+                    "Incorrect blob type, expected V1",
+                ));
             }
-        }
+        };
 
         let dock_addr = match req.substrate_addr {
             IpAddr::V4(addr) => addr.octets().to_vec(),
