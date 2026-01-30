@@ -18,6 +18,14 @@ pub struct AuthBlobV1 {
     pub challenge_responses: Vec<Vec<u8>>,
 }
 
+impl AuthBlobV1 {
+    pub fn new(challenge_responses: Vec<Vec<u8>>) -> Self {
+        Self {
+            challenge_responses,
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct SelfSignedBlob {
     pub alg: ChallengeAlg,

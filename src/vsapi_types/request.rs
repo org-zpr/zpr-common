@@ -47,9 +47,7 @@ impl TryFrom<vsapi::ConnectRequest> for ConnectRequest {
             None => return Err(VsapiTypeError::DeserializationError("No claims")),
         };
         let blobs = match thrift_req.challenge_responses {
-            Some(cr) => AuthBlobs::V1(AuthBlobV1 {
-                challenge_responses: cr,
-            }),
+            Some(cr) => AuthBlobs::V1(AuthBlobV1::new(cr)),
             None => {
                 return Err(VsapiTypeError::DeserializationError(
                     "No challenge responses",
