@@ -1,11 +1,11 @@
 [package]
 name = "zpr"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 license = "Apache-2.0"
 
 [dependencies]
-capnp = { version = "0.23", optional = true }
+capnp = { version = "0.25", optional = true }
 open-enum = { version = "0.5" }
 zerocopy = { version = "0.8", features = ["derive"] }
 thiserror = "1.0.65"
@@ -13,7 +13,7 @@ vsapi = { git = "https://github.com/org-zpr/zpr-vsapi-rs.git", tag = "v0.4.1", o
 url = "2.5.4"
 
 [build-dependencies]
-capnpc = "0.23"
+capnpc = "0.25"
 
 [features]
 policy = ["capnp"]
