@@ -2,8 +2,8 @@ use std::net::IpAddr;
 
 use crate::vsapi::v1;
 use crate::vsapi_types::{
-    ApiResponseError, CommFlag, DockPep, EndpointT, IcmpPep, KeySet, PacketDesc, ServiceDescriptor,
-    TcpUdpPep, Visa, VisaOp,
+    ApiResponseError, CommFlag, Connection, DockPep, EndpointT, IcmpPep, KeySet, PacketDesc,
+    ServiceDescriptor, TcpUdpPep, Visa, VisaOp,
 };
 use crate::write_to::WriteTo;
 
@@ -129,5 +129,13 @@ impl WriteTo<v1::error::Builder<'_>> for ApiResponseError {
         bldr.set_code(self.code.clone().into());
         bldr.set_message(&self.message);
         bldr.set_retry_in(self.retry_in);
+    }
+}
+
+impl WriteTo<v1::connection::Builder<'_>> for Connection {
+    fn write_to(&self, bldr: &mut v1::connection::Builder<'_>) {
+        let mut ip_bldr = bldr.reborrow().init_zpr_addr();
+        self.zpr_addr.write_to(&mut ip_bldr);
+        bldr.set_auth_expires(self.auth_expires as u64);
     }
 }

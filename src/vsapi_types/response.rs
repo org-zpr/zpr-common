@@ -1,5 +1,6 @@
 use std::fmt;
 use std::net::IpAddr;
+use std::time::SystemTime;
 
 use crate::vsapi::v1;
 use crate::vsapi_types::error::{ApiResponseError, ErrorCode};
@@ -40,6 +41,18 @@ pub enum DenyCode {
     SourceAuthError,
     DestAuthError,
     QuotaExceeded,
+}
+
+impl Connection {
+    pub fn new(zpr_addr: IpAddr, auth_expires: SystemTime) -> Self {
+        Self {
+            zpr_addr,
+            auth_expires: auth_expires
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        }
+    }
 }
 
 impl Denied {
