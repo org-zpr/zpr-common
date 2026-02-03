@@ -15,7 +15,7 @@ pub struct AuthServicesList {
 }
 
 /// A parsed [vsapi::ServiceDescriptor] that we use to keep ASA records.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ServiceDescriptor {
     // TYPE is omitted -- only supported type currently is 'actorAuthentication'
     pub service_id: String,
