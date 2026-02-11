@@ -16,7 +16,7 @@ clean:
 	cargo clean
 
 # This command updates your local submodules if the submodule has been pointed
-# to a new commit in the remote branc
+# to a new commit in the remote branch
 submodules-pull:
 	git submodule update --init --recursive
 
