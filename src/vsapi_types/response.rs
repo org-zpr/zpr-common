@@ -29,6 +29,16 @@ pub struct Denied {
     pub reason: Option<String>,
 }
 
+/// Disconnect reason, mirrors DisconnectReason in vs.capnp
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum DisconnectReason {
+    RemoteDisconnect,
+    Timeout,
+    LinkError,
+    NodeShutdown,
+    Admin,
+}
+
 /// Denial code, match the codes in vs.capnp, except for Fail
 #[derive(Debug, Eq, PartialEq)]
 pub enum DenyCode {
@@ -62,6 +72,12 @@ impl Denied {
 }
 
 impl fmt::Display for DenyCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl fmt::Display for DisconnectReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
     }
@@ -159,6 +175,30 @@ impl From<DenyCode> for v1::VisaDenyCode {
             DenyCode::DestAuthError => v1::VisaDenyCode::DestAuthError,
             DenyCode::QuotaExceeded => v1::VisaDenyCode::QuotaExceeded,
             DenyCode::Fail => v1::VisaDenyCode::NoReason, // No direct mapping (TODO: remove Fail)
+        }
+    }
+}
+
+impl From<v1::DisconnectReason> for DisconnectReason {
+    fn from(reason: v1::DisconnectReason) -> Self {
+        match reason {
+            v1::DisconnectReason::RemoteDisconnect => DisconnectReason::RemoteDisconnect,
+            v1::DisconnectReason::Timeout => DisconnectReason::Timeout,
+            v1::DisconnectReason::LinkError => DisconnectReason::LinkError,
+            v1::DisconnectReason::NodeShutdown => DisconnectReason::NodeShutdown,
+            v1::DisconnectReason::Admin => DisconnectReason::Admin,
+        }
+    }
+}
+
+impl From<DisconnectReason> for v1::DisconnectReason {
+    fn from(reason: DisconnectReason) -> Self {
+        match reason {
+            DisconnectReason::RemoteDisconnect => v1::DisconnectReason::RemoteDisconnect,
+            DisconnectReason::Timeout => v1::DisconnectReason::Timeout,
+            DisconnectReason::LinkError => v1::DisconnectReason::LinkError,
+            DisconnectReason::NodeShutdown => v1::DisconnectReason::NodeShutdown,
+            DisconnectReason::Admin => v1::DisconnectReason::Admin,
         }
     }
 }
