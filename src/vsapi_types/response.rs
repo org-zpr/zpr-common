@@ -67,6 +67,19 @@ impl fmt::Display for DenyCode {
     }
 }
 
+impl TryFrom<v1::connection::Reader<'_>> for Connection {
+    type Error = VsapiTypeError;
+
+    fn try_from(reader: v1::connection::Reader<'_>) -> Result<Self, Self::Error> {
+        let zpr_addr = IpAddr::try_from(reader.get_zpr_addr()?)?;
+        let auth_expires = reader.get_auth_expires();
+        Ok(Connection {
+            zpr_addr,
+            auth_expires,
+        })
+    }
+}
+
 impl TryFrom<vsapi::ConnectResponse> for Connection {
     type Error = VsapiTypeError;
 
