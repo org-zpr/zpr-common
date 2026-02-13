@@ -2,8 +2,8 @@ use std::net::IpAddr;
 
 use crate::vsapi::v1;
 use crate::vsapi_types::{
-    ApiResponseError, CommFlag, Connection, DockPep, EndpointT, IcmpPep, KeySet, PacketDesc,
-    ServiceDescriptor, TcpUdpPep, Visa, VisaOp,
+    ApiResponseError, AuthBlob, ChallengeAlg, Claim, CommFlag, ConnectRequest, Connection, DockPep,
+    EndpointT, IcmpPep, KeySet, PacketDesc, ServiceDescriptor, TcpUdpPep, Visa, VisaOp,
 };
 use crate::write_to::WriteTo;
 
@@ -137,5 +137,56 @@ impl WriteTo<v1::connection::Builder<'_>> for Connection {
         let mut ip_bldr = bldr.reborrow().init_zpr_addr();
         self.zpr_addr.write_to(&mut ip_bldr);
         bldr.set_auth_expires(self.auth_expires as u64);
+    }
+}
+
+impl WriteTo<v1::claim::Builder<'_>> for Claim {
+    fn write_to(&self, bldr: &mut v1::claim::Builder<'_>) {
+        bldr.set_key(&self.key);
+        bldr.set_value(&self.value);
+    }
+}
+
+impl WriteTo<v1::auth_blob::Builder<'_>> for AuthBlob {
+    fn write_to(&self, bldr: &mut v1::auth_blob::Builder<'_>) {
+        match self {
+            AuthBlob::SS(ss) => {
+                let mut ss_bldr = bldr.reborrow().init_ss();
+                let alg = match ss.alg {
+                    ChallengeAlg::RsaSha256Pkcs1v15 => v1::ChallengeAlg::RsaSha256Pkcs1v15,
+                };
+                ss_bldr.set_alg(alg);
+                ss_bldr.set_challenge(&ss.challenge);
+                ss_bldr.set_cn(&ss.cn);
+                ss_bldr.set_timestamp(ss.timestamp);
+                ss_bldr.set_signature(&ss.signature);
+            }
+            AuthBlob::AC(ac) => {
+                let mut ac_bldr = bldr.reborrow().init_ac();
+                let mut ip_bldr = ac_bldr.reborrow().init_asa_addr();
+                ac.asa_addr.write_to(&mut ip_bldr);
+                ac_bldr.set_code(&ac.code);
+                ac_bldr.set_pkce(&ac.pkce);
+                ac_bldr.set_client_id(&ac.client_id);
+            }
+        }
+    }
+}
+
+impl WriteTo<v1::connect_request::Builder<'_>> for ConnectRequest {
+    fn write_to(&self, bldr: &mut v1::connect_request::Builder<'_>) {
+        let mut blobs_bldr = bldr.reborrow().init_blobs(self.blobs.len() as u32);
+        for (i, blob) in self.blobs.iter().enumerate() {
+            let mut blob_bldr = blobs_bldr.reborrow().get(i as u32);
+            blob.write_to(&mut blob_bldr);
+        }
+        let mut claims_bldr = bldr.reborrow().init_claims(self.claims.len() as u32);
+        for (i, claim) in self.claims.iter().enumerate() {
+            let mut claim_bldr = claims_bldr.reborrow().get(i as u32);
+            claim.write_to(&mut claim_bldr);
+        }
+        let mut ip_bldr = bldr.reborrow().init_substrate_addr();
+        self.substrate_addr.write_to(&mut ip_bldr);
+        bldr.set_dock_interface(self.dock_interface);
     }
 }
