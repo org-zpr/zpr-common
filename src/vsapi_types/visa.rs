@@ -6,7 +6,6 @@ use crate::packet_info::L3Type;
 use crate::vsapi::v1;
 use crate::vsapi_types::VsapiFiveTuple;
 use crate::vsapi_types::VsapiTypeError;
-use crate::vsapi_types::util::ip::ip_addr_from_vec;
 use crate::vsapi_types::util::time::visa_expiration_timestamp_to_system_time;
 use crate::vsapi_types::vsapi_ip_number;
 
@@ -14,7 +13,7 @@ use crate::vsapi_types::vsapi_ip_number;
 // TODO figure out which of these need to stay once we switch to capnp
 #[derive(Debug, Clone)]
 pub struct Visa {
-    pub issuer_id: u64, // i32 in thrift, u64 in capnp
+    pub issuer_id: u64,
     pub config: i64,
     pub expires: SystemTime,
     pub source_addr: IpAddr,
@@ -251,107 +250,6 @@ impl TryFrom<v1::visa_op::Reader<'_>> for VisaOp {
     }
 }
 
-impl TryFrom<vsapi::VisaHop> for Visa {
-    type Error = VsapiTypeError;
-
-    /// Returns err if there is no visa in the VisaHop or if the visa is badly formatted
-    fn try_from(hop: vsapi::VisaHop) -> Result<Self, Self::Error> {
-        match hop.visa {
-            Some(visa) => Visa::try_from(visa),
-            None => Err(VsapiTypeError::DeserializationError("No visa")),
-        }
-    }
-}
-
-impl TryFrom<vsapi::Visa> for Visa {
-    type Error = VsapiTypeError;
-
-    /// Returns err if required values are not set
-    fn try_from(thrift_visa: vsapi::Visa) -> Result<Self, Self::Error> {
-        let issuer_id = match thrift_visa.issuer_id {
-            Some(val) => val as u64,
-            None => {
-                return Err(VsapiTypeError::DeserializationError("No issuer id"));
-            }
-        };
-        let config = match thrift_visa.configuration {
-            Some(val) => val,
-            None => 0,
-        };
-        let expires = match thrift_visa.expires {
-            Some(val) => visa_expiration_timestamp_to_system_time(val as u64),
-            None => {
-                return Err(VsapiTypeError::DeserializationError("No expiration"));
-            }
-        };
-        let source_addr = match thrift_visa.source_contact {
-            Some(val) => ip_addr_from_vec(val)?,
-            None => return Err(VsapiTypeError::DeserializationError("No source addr")),
-        };
-        let dest_addr = match thrift_visa.dest_contact {
-            Some(val) => ip_addr_from_vec(val)?,
-            None => return Err(VsapiTypeError::DeserializationError("No dest addr")),
-        };
-        let dock_pep = match thrift_visa.dock_pep {
-            Some(val) => match val {
-                vsapi::PEPIndex::UDP => {
-                    let tcp_udp_pep = match thrift_visa.tcpudp_pep_args {
-                        Some(val) => TcpUdpPep::from(val),
-                        None => {
-                            return Err(VsapiTypeError::DeserializationError(
-                                "No TCP/UDP PEP Args",
-                            ));
-                        }
-                    };
-                    DockPep::UDP(tcp_udp_pep)
-                }
-                vsapi::PEPIndex::TCP => {
-                    let tcp_udp_pep = match thrift_visa.tcpudp_pep_args {
-                        Some(val) => TcpUdpPep::from(val),
-                        None => {
-                            return Err(VsapiTypeError::DeserializationError(
-                                "No TCP/UDP PEP Args",
-                            ));
-                        }
-                    };
-                    DockPep::TCP(tcp_udp_pep)
-                }
-                vsapi::PEPIndex::ICMP => {
-                    let icmp_pep = match thrift_visa.icmp_pep_args {
-                        Some(val) => IcmpPep::from(val),
-                        None => {
-                            return Err(VsapiTypeError::DeserializationError("No ICMP PEP Args"));
-                        }
-                    };
-                    DockPep::ICMP(icmp_pep)
-                }
-                _ => return Err(VsapiTypeError::DeserializationError("Unknown Dock Pep")),
-            },
-            None => return Err(VsapiTypeError::DeserializationError("No Dock Pep")),
-        };
-
-        let session_key = match thrift_visa.session_key {
-            Some(val) => KeySet::try_from(val)?,
-            None => KeySet::default(),
-        };
-        let cons = match thrift_visa.cons {
-            Some(val) => Some(Constraints::from(val)),
-            None => None,
-        };
-
-        Ok(Self {
-            issuer_id,
-            config,
-            expires,
-            source_addr,
-            dest_addr,
-            dock_pep,
-            session_key,
-            cons,
-        })
-    }
-}
-
 impl TryFrom<v1::dock_pep::Reader<'_>> for DockPep {
     type Error = VsapiTypeError;
 
@@ -392,45 +290,6 @@ impl TryFrom<v1::dock_pep::Reader<'_>> for DockPep {
     }
 }
 
-impl From<vsapi::PEPArgsTCPUDP> for TcpUdpPep {
-    /// Sets source_port and dest_port to 0 if they are not set
-    fn from(thrift_tcp_udp_pep: vsapi::PEPArgsTCPUDP) -> Self {
-        let source_port = match thrift_tcp_udp_pep.source_port {
-            Some(val) => val as u16,
-            None => 0,
-        };
-        let dest_port = match thrift_tcp_udp_pep.dest_port {
-            Some(val) => val as u16,
-            None => 0,
-        };
-
-        Self {
-            source_port,
-            dest_port,
-            endpoint: match thrift_tcp_udp_pep.server {
-                Some(true) => EndpointT::Server,
-                Some(false) => EndpointT::Client,
-                None => EndpointT::Any,
-            },
-        }
-    }
-}
-
-impl From<vsapi::PEPArgsICMP> for IcmpPep {
-    /// Sets icmp_type 0 if it it is not set, always sets icmp_code to 0 because it is not used by the Thrift VS
-    fn from(thrift_icmp_pep: vsapi::PEPArgsICMP) -> Self {
-        let icmp_type_code = match thrift_icmp_pep.icmp_type_code {
-            Some(val) => val as u16,
-            None => 0,
-        };
-
-        Self {
-            icmp_type: icmp_type_code as u8,
-            icmp_code: 0,
-        }
-    }
-}
-
 impl TryFrom<v1::key_set::Reader<'_>> for KeySet {
     type Error = VsapiTypeError;
 
@@ -447,77 +306,5 @@ impl TryFrom<v1::key_set::Reader<'_>> for KeySet {
             ingress_key,
             egress_key,
         })
-    }
-}
-
-impl TryFrom<vsapi::KeySet> for KeySet {
-    type Error = VsapiTypeError;
-
-    /// Returns err if KeyFormat is not set
-    fn try_from(thrift_key_set: vsapi::KeySet) -> Result<Self, Self::Error> {
-        let format = match thrift_key_set.format {
-            Some(_) => KeyFormat::ZprKF01,
-            None => return Err(VsapiTypeError::DeserializationError("No format")),
-        };
-        let ingress_key = match thrift_key_set.ingress_key {
-            Some(val) => val,
-            None => Vec::new(),
-        };
-        let egress_key = match thrift_key_set.egress_key {
-            Some(val) => val,
-            None => Vec::new(),
-        };
-
-        Ok(Self {
-            format,
-            ingress_key,
-            egress_key,
-        })
-    }
-}
-
-impl From<vsapi::Constraints> for Constraints {
-    /// Sets default values if values are not set
-    fn from(thrift_cons: vsapi::Constraints) -> Self {
-        let bw = match thrift_cons.bw {
-            Some(val) => val,
-            None => false,
-        };
-        let bw_limit_bps = match thrift_cons.bw_limit_bps {
-            Some(val) => val,
-            None => 0,
-        };
-        let data_cap_id = match thrift_cons.data_cap_id {
-            Some(val) => val,
-            None => String::new(),
-        };
-        let data_cap_bytes = match thrift_cons.data_cap_bytes {
-            Some(val) => val,
-            None => 0,
-        };
-        let data_cap_affinity_addr = match thrift_cons.data_cap_affinity_addr {
-            Some(val) => val,
-            None => Vec::new(),
-        };
-
-        Self {
-            bw,
-            bw_limit_bps,
-            data_cap_id,
-            data_cap_bytes,
-            data_cap_affinity_addr,
-        }
-    }
-}
-
-impl TryFrom<vsapi::VisaRevocation> for VisaOp {
-    type Error = VsapiTypeError;
-
-    /// Returns err if there is no issuer id
-    fn try_from(revoke: vsapi::VisaRevocation) -> Result<Self, Self::Error> {
-        match revoke.issuer_id {
-            Some(id) => Ok(Self::RevokeVisaId(id as u64)),
-            None => Err(VsapiTypeError::DeserializationError("No issuer id")),
-        }
     }
 }

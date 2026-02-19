@@ -1,11 +1,9 @@
 use std::net::IpAddr;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 use url::Url;
 
-use crate::vsapi_types::VsapiTypeError;
-use crate::vsapi_types::util::ip::ip_addr_from_vec;
-
 use crate::vsapi::v1;
+use crate::vsapi_types::VsapiTypeError;
 
 /// Capnp does not have a separate AuthServicesList structure, instead just uses List(ServiceDescriptor)
 #[derive(Debug, Clone)]
@@ -70,55 +68,6 @@ impl ServiceDescriptor {
             None => return None, // No port in URI, so no SocketAddr for you
         };
         Some(std::net::SocketAddr::new(self.zpr_addr.into(), port))
-    }
-}
-
-impl TryFrom<vsapi::ServicesList> for AuthServicesList {
-    type Error = VsapiTypeError;
-
-    /// Returns err if a ServiceDescriptor is badly formatted
-    fn try_from(services_list: vsapi::ServicesList) -> Result<Self, Self::Error> {
-        let mut expiration = None;
-        if let Some(exp) = services_list.expiration {
-            expiration = Some(UNIX_EPOCH + Duration::from_secs(exp as u64));
-        }
-        let mut services = Vec::new();
-        if let Some(svc_list) = services_list.services {
-            for svc in svc_list {
-                services.push(ServiceDescriptor::try_from(svc)?);
-            }
-        }
-        Ok(Self {
-            expiration,
-            services,
-        })
-    }
-}
-
-impl TryFrom<vsapi::ServiceDescriptor> for ServiceDescriptor {
-    type Error = VsapiTypeError;
-
-    /// Returns err if required values are not set
-    fn try_from(value: vsapi::ServiceDescriptor) -> Result<Self, Self::Error> {
-        if value.type_ != vsapi::ServiceType::ACTOR_AUTHENTICATION {
-            return Err(VsapiTypeError::DeserializationError(
-                "vsapi::ServiceDescriptor is not of type ACTOR_AUTHENTICATION",
-            ));
-        }
-        let zpr_addr = match value.address {
-            Some(address) => ip_addr_from_vec(address)?,
-            None => {
-                return Err(VsapiTypeError::DeserializationError(
-                    "vsapi::ServiceDescriptor addr is empty",
-                ));
-            }
-        };
-
-        Ok(ServiceDescriptor {
-            service_id: value.service_id.unwrap_or_default(),
-            service_uri: value.uri.unwrap_or_default(),
-            zpr_addr,
-        })
     }
 }
 

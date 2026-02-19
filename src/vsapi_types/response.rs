@@ -4,7 +4,6 @@ use std::time::SystemTime;
 
 use crate::vsapi::v1;
 use crate::vsapi_types::error::{ApiResponseError, ErrorCode};
-use crate::vsapi_types::util::ip::ip_addr_from_vec;
 use crate::vsapi_types::{Visa, VsapiTypeError};
 
 /// Info recieved from VS in response to ConnectRequest
@@ -93,36 +92,6 @@ impl TryFrom<v1::connection::Reader<'_>> for Connection {
             zpr_addr,
             auth_expires,
         })
-    }
-}
-
-impl TryFrom<vsapi::ConnectResponse> for Connection {
-    type Error = VsapiTypeError;
-
-    /// Returns err if StatusCode is FAIL, unrecognized, or not set. Also err if there is no actor, zpr addr, or auth expires
-    fn try_from(resp: vsapi::ConnectResponse) -> Result<Self, Self::Error> {
-        match resp.status {
-            Some(vsapi::StatusCode::FAIL) => Err(VsapiTypeError::CodedError(ErrorCode::Fail)),
-            Some(vsapi::StatusCode::SUCCESS) => match resp.actor {
-                Some(actor) => match (actor.zpr_addr, actor.auth_expires) {
-                    (Some(zpr_addr), Some(auth_expires)) => {
-                        return Ok(Self {
-                            zpr_addr: ip_addr_from_vec(zpr_addr)?,
-                            auth_expires: auth_expires as u64,
-                        });
-                    }
-                    _ => {
-                        return Err(VsapiTypeError::DeserializationError(
-                            "Required fields not set",
-                        ));
-                    }
-                },
-                None => return Err(VsapiTypeError::DeserializationError("No actor")),
-            },
-            _ => Err(VsapiTypeError::DeserializationError(
-                "No matching status code",
-            )),
-        }
     }
 }
 
@@ -216,38 +185,6 @@ impl From<v1::ErrorCode> for ErrorCode {
             v1::ErrorCode::TemporarilyUnavailable => ErrorCode::TemporarilyUnavailable,
             v1::ErrorCode::AuthError => ErrorCode::AuthError,
             v1::ErrorCode::ParamError => ErrorCode::ParamError,
-        }
-    }
-}
-
-impl TryFrom<vsapi::VisaResponse> for VisaResponse {
-    type Error = VsapiTypeError;
-
-    /// Returns err if required values are unset or StatusCode is unknown
-    fn try_from(thrift_visa_response: vsapi::VisaResponse) -> Result<Self, Self::Error> {
-        match thrift_visa_response.status {
-            Some(code) => match code {
-                vsapi::StatusCode::SUCCESS => {
-                    if let Some(thrift_visa_hop) = thrift_visa_response.visa {
-                        let visa = Visa::try_from(thrift_visa_hop)?;
-                        Ok(Self::Allow(visa))
-                    } else {
-                        Err(VsapiTypeError::DeserializationError(
-                            "No VisaHop in VisaResponse",
-                        ))
-                    }
-                }
-                vsapi::StatusCode::FAIL => Ok(Self::Deny(Denied::new(
-                    DenyCode::Fail,
-                    thrift_visa_response.reason,
-                ))),
-                _ => {
-                    return Err(VsapiTypeError::DeserializationError("Unknown status code"));
-                }
-            },
-            None => Err(VsapiTypeError::DeserializationError(
-                "No code, required in Thrift visa",
-            )),
         }
     }
 }
