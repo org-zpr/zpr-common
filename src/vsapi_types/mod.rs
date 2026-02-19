@@ -1,9 +1,6 @@
 //! Our internal visa types. These are shared by ph, libnode2, and several visa service
 //! crates.
 //!
-//! Currently based on a mix of the thrift and capnp protocols, will likely evolve as we move
-//! away from thrift exclusively to capnp.
-//!
 
 mod auth;
 mod error;
@@ -110,54 +107,6 @@ mod tests {
         // Empty but not expired
         list.services.clear();
         assert!(!list.is_valid());
-    }
-
-    #[test]
-    fn test_service_descriptor_try_from_valid() {
-        let vsapi_descriptor = vsapi::ServiceDescriptor {
-            type_: vsapi::ServiceType::ACTOR_AUTHENTICATION,
-            service_id: Some("test-service".to_string()),
-            uri: Some("https://example.com:8443/auth".to_string()),
-            address: Some(vec![192, 168, 1, 100]),
-        };
-
-        let result = ServiceDescriptor::try_from(vsapi_descriptor);
-        assert!(result.is_ok());
-
-        let descriptor = result.unwrap();
-        assert_eq!(descriptor.service_id, "test-service");
-        assert_eq!(descriptor.service_uri, "https://example.com:8443/auth");
-        assert_eq!(descriptor.zpr_addr, IpAddr::from([192, 168, 1, 100]));
-    }
-
-    #[test]
-    fn test_service_descriptor_try_from_no_address() {
-        let vsapi_descriptor = vsapi::ServiceDescriptor {
-            type_: vsapi::ServiceType::ACTOR_AUTHENTICATION,
-            service_id: Some("test-service".to_string()),
-            uri: Some("https://example.com:8443/auth".to_string()),
-            address: None,
-        };
-
-        let result = ServiceDescriptor::try_from(vsapi_descriptor);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_service_descriptor_try_from_defaults() {
-        let vsapi_descriptor = vsapi::ServiceDescriptor {
-            type_: vsapi::ServiceType::ACTOR_AUTHENTICATION,
-            service_id: None, // Should use default (empty string)
-            uri: None,        // Should use default (empty string)
-            address: Some(vec![10, 0, 0, 1]),
-        };
-
-        let result = ServiceDescriptor::try_from(vsapi_descriptor);
-        assert!(result.is_ok());
-
-        let descriptor = result.unwrap();
-        assert_eq!(descriptor.service_id, "");
-        assert_eq!(descriptor.service_uri, "");
     }
 
     #[test]
