@@ -10,10 +10,8 @@ common constants, and IDL schemas used across ZPR services and libraries.
 - IDL sources for ZPR sub-protocols. These are included as **submodules** at
   the moment but at some point will live here directly.
   - `zpr-admin-api/` Cap'n Proto schema for the PH CLI/admin API.
-  - `zpr-policy/` Policy schema (Proto + Cap'n Proto). All new code should be
-    using the Cap'n Proto version.
-  - `zpr-vsapi/` Visa Service API IDL (Cap'n Proto + Thrift).  All new code 
-    should be using the Cap'n Proto version.
+  - `zpr-policy/` Policy schema (Cap'n Proto). 
+  - `zpr-vsapi/` Visa Service API IDL (Cap'n Proto).  
 
 ## Crate features
 - `admin-api` - builds Cap'n Proto bindings for the admin/CLI API.
