@@ -17,7 +17,7 @@ mod writer;
 pub use auth::{AuthBlob, AuthCodeBlob, ChallengeAlg, SelfSignedBlob};
 pub use error::{ApiResponseError, ErrorCode, VsapiTypeError};
 pub use packet::{CommFlag, PacketDesc, VsapiFiveTuple, VsapiIpProtocol, vsapi_ip_number};
-pub use request::{Claim, ConnectRequest, ConnectRequestV1};
+pub use request::{Claim, ConnectRequest};
 pub use response::{Connection, Denied, DenyCode, DisconnectReason, VisaResponse};
 pub use services::{AuthServicesList, ServiceDescriptor};
 pub use util::ip::ip_addr_from_vec;

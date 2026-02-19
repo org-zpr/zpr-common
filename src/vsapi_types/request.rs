@@ -14,14 +14,6 @@ pub struct ConnectRequest {
 }
 
 #[derive(Debug)]
-pub struct ConnectRequestV1 {
-    pub challenge_responses: Vec<Vec<u8>>,
-    pub claims: Vec<Claim>,
-    pub dock_addr: IpAddr,
-    pub connection_id: i32,
-}
-
-#[derive(Debug)]
 pub struct Claim {
     pub key: String,
     pub value: String,
