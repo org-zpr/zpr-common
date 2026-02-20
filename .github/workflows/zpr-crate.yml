@@ -20,8 +20,7 @@ env:
 jobs:
   build-test-check:
     name: zpr_crate
-    uses: org-zpr/zpr-dev-tools/.github/workflows/rust-build-test.yml@4b1b69ee9de8b9a295d9ad2746846c872a3af2aa
-    
+    uses: org-zpr/zpr-dev-tools/.github/workflows/rust-build-test.yml@v1.2
     with:
       name: 'zpr_crate'
       needs-capnp: true
