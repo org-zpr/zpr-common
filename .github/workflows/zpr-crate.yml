@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -13,15 +16,15 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   CARGO_NET_GIT_FETCH_WITH_CLI: true
-  ZPR_CICD_RO_TOKEN: ${{ secrets.ZPR_CICD_RO_TOKEN }}
 
 jobs:
   build-test-check:
     name: zpr_crate
-    uses: org-zpr/zpr-dev-tools/.github/workflows/rust-build-test.yml@v1.2
+    uses: org-zpr/zpr-dev-tools/.github/workflows/rust-build-test.yml@4b1b69ee9de8b9a295d9ad2746846c872a3af2aa
     
     with:
       name: 'zpr_crate'
       needs-capnp: true
       features: 'all'
-    secrets: inherit
+    secrets:
+      ZPR_CICD_RO_TOKEN: ${{ secrets.ZPR_CICD_RO_TOKEN }}
