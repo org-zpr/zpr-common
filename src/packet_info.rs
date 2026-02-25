@@ -39,7 +39,7 @@ pub const DOCK_LINK_ID: LinkId = 2;
 pub type StreamId = u32;
 
 /// Forwarding entry used both for forwarding next-hops and looking up forwarding next-hops
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ForwardingEntry(pub LinkId, pub StreamId);
 
 /// Visa ID
@@ -144,11 +144,3 @@ impl std::fmt::Display for Tcst {
         }
     }
 }
-
-impl PartialEq for ForwardingEntry {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0 && self.1 == other.1
-    }
-}
-
-impl Eq for ForwardingEntry {}
