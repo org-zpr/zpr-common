@@ -3,6 +3,9 @@
 use crate::vsapi::v1;
 use crate::vsapi_types::VsapiTypeError;
 
+const IPV4_LEN: usize = 4;
+const IPV6_LEN: usize = 16;
+
 /// Shared, well known parameter names.
 pub mod pname {
     /// Used to pass a ZPR address
@@ -65,7 +68,7 @@ impl TryFrom<v1::param::Reader<'_>> for Param {
             v1::ParamT::Ipv4 => match reader.which()? {
                 v1::param::ValueData(data) => {
                     let bytes = data?;
-                    if bytes.len() != 4 {
+                    if bytes.len() != IPV4_LEN {
                         return Err(VsapiTypeError::DeserializationError(
                             "IPv4 param must be 4 bytes",
                         ));
@@ -86,13 +89,13 @@ impl TryFrom<v1::param::Reader<'_>> for Param {
             v1::ParamT::Ipv6 => match reader.which()? {
                 v1::param::ValueData(data) => {
                     let bytes = data?;
-                    if bytes.len() != 16 {
+                    if bytes.len() != IPV6_LEN {
                         return Err(VsapiTypeError::DeserializationError(
                             "IPv6 param must be 16 bytes",
                         ));
                     }
                     let addr = std::net::Ipv6Addr::from(
-                        <[u8; 16]>::try_from(bytes.as_ref()).map_err(|_| {
+                        <[u8; IPV6_LEN]>::try_from(bytes.as_ref()).map_err(|_| {
                             VsapiTypeError::DeserializationError(
                                 "Failed to convert to [u8; 16] for IPv6",
                             )
