@@ -112,3 +112,253 @@ impl TryFrom<v1::param::Reader<'_>> for Param {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vsapi::v1;
+
+    // --- helpers ---
+
+    fn text_param_msg(
+        name: &str,
+        ptype: v1::ParamT,
+        text_value: &str,
+    ) -> capnp::message::Builder<capnp::message::HeapAllocator> {
+        let mut msg = capnp::message::Builder::new_default();
+        {
+            let mut root: v1::param::Builder<'_> = msg.init_root();
+            root.set_name(name);
+            root.set_ptype(ptype);
+            root.set_value_text(text_value);
+        }
+        msg
+    }
+
+    fn u64_param_msg(
+        name: &str,
+        ptype: v1::ParamT,
+        u64_value: u64,
+    ) -> capnp::message::Builder<capnp::message::HeapAllocator> {
+        let mut msg = capnp::message::Builder::new_default();
+        {
+            let mut root: v1::param::Builder<'_> = msg.init_root();
+            root.set_name(name);
+            root.set_ptype(ptype);
+            root.set_value_u64(u64_value);
+        }
+        msg
+    }
+
+    fn data_param_msg(
+        name: &str,
+        ptype: v1::ParamT,
+        data_value: &[u8],
+    ) -> capnp::message::Builder<capnp::message::HeapAllocator> {
+        let mut msg = capnp::message::Builder::new_default();
+        {
+            let mut root: v1::param::Builder<'_> = msg.init_root();
+            root.set_name(name);
+            root.set_ptype(ptype);
+            root.set_value_data(data_value);
+        }
+        msg
+    }
+
+    fn read_param(
+        msg: &capnp::message::Builder<capnp::message::HeapAllocator>,
+    ) -> Result<Param, VsapiTypeError> {
+        let reader: v1::param::Reader<'_> = msg.get_root_as_reader().unwrap();
+        Param::try_from(reader)
+    }
+
+    // --- happy path ---
+
+    #[test]
+    fn string_param_roundtrip() {
+        let msg = text_param_msg("zpr_addr", v1::ParamT::String, "10.0.0.1");
+        let param = read_param(&msg).unwrap();
+        assert_eq!(param.name, "zpr_addr");
+        assert!(matches!(param.value, ParamValue::StrParam(ref s) if s == "10.0.0.1"));
+    }
+
+    #[test]
+    fn string_param_empty_value() {
+        let msg = text_param_msg("key", v1::ParamT::String, "");
+        let param = read_param(&msg).unwrap();
+        assert!(matches!(param.value, ParamValue::StrParam(ref s) if s.is_empty()));
+    }
+
+    #[test]
+    fn u64_param_roundtrip() {
+        let msg = u64_param_msg("counter", v1::ParamT::U64, 42);
+        let param = read_param(&msg).unwrap();
+        assert_eq!(param.name, "counter");
+        assert!(matches!(param.value, ParamValue::U64Param(42)));
+    }
+
+    #[test]
+    fn u64_param_zero() {
+        let msg = u64_param_msg("counter", v1::ParamT::U64, 0);
+        let param = read_param(&msg).unwrap();
+        assert!(matches!(param.value, ParamValue::U64Param(0)));
+    }
+
+    #[test]
+    fn u64_param_max() {
+        let msg = u64_param_msg("counter", v1::ParamT::U64, u64::MAX);
+        let param = read_param(&msg).unwrap();
+        assert!(matches!(param.value, ParamValue::U64Param(u64::MAX)));
+    }
+
+    #[test]
+    fn ipv4_param_roundtrip() {
+        let msg = data_param_msg("addr", v1::ParamT::Ipv4, &[192, 168, 1, 1]);
+        let param = read_param(&msg).unwrap();
+        assert_eq!(param.name, "addr");
+        match param.value {
+            ParamValue::IpParam(std::net::IpAddr::V4(a)) => {
+                assert_eq!(a, std::net::Ipv4Addr::new(192, 168, 1, 1));
+            }
+            _ => panic!("expected IpParam(V4)"),
+        }
+    }
+
+    #[test]
+    fn ipv4_broadcast() {
+        let msg = data_param_msg("bc", v1::ParamT::Ipv4, &[255, 255, 255, 255]);
+        let param = read_param(&msg).unwrap();
+        assert!(matches!(
+            param.value,
+            ParamValue::IpParam(std::net::IpAddr::V4(a)) if a == std::net::Ipv4Addr::BROADCAST
+        ));
+    }
+
+    #[test]
+    fn ipv6_param_roundtrip() {
+        let bytes: [u8; 16] = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+        let msg = data_param_msg("addr6", v1::ParamT::Ipv6, &bytes);
+        let param = read_param(&msg).unwrap();
+        match param.value {
+            ParamValue::IpParam(std::net::IpAddr::V6(a)) => {
+                assert_eq!(a, std::net::Ipv6Addr::from(bytes));
+            }
+            _ => panic!("expected IpParam(V6)"),
+        }
+    }
+
+    #[test]
+    fn ipv6_loopback() {
+        let mut bytes = [0u8; 16];
+        bytes[15] = 1; // ::1
+        let msg = data_param_msg("lo6", v1::ParamT::Ipv6, &bytes);
+        let param = read_param(&msg).unwrap();
+        assert!(matches!(
+            param.value,
+            ParamValue::IpParam(std::net::IpAddr::V6(a)) if a == std::net::Ipv6Addr::LOCALHOST
+        ));
+    }
+
+    // --- type/union mismatches ---
+
+    #[test]
+    fn string_ptype_u64_union_errors() {
+        let msg = u64_param_msg("x", v1::ParamT::String, 99);
+        assert!(matches!(
+            read_param(&msg),
+            Err(VsapiTypeError::DeserializationError(_))
+        ));
+    }
+
+    #[test]
+    fn string_ptype_data_union_errors() {
+        let msg = data_param_msg("x", v1::ParamT::String, &[1, 2, 3]);
+        assert!(matches!(
+            read_param(&msg),
+            Err(VsapiTypeError::DeserializationError(_))
+        ));
+    }
+
+    #[test]
+    fn u64_ptype_text_union_errors() {
+        let msg = text_param_msg("x", v1::ParamT::U64, "oops");
+        assert!(matches!(
+            read_param(&msg),
+            Err(VsapiTypeError::DeserializationError(_))
+        ));
+    }
+
+    #[test]
+    fn u64_ptype_data_union_errors() {
+        let msg = data_param_msg("x", v1::ParamT::U64, &[1, 2, 3, 4]);
+        assert!(matches!(
+            read_param(&msg),
+            Err(VsapiTypeError::DeserializationError(_))
+        ));
+    }
+
+    #[test]
+    fn ipv4_ptype_text_union_errors() {
+        let msg = text_param_msg("x", v1::ParamT::Ipv4, "not-bytes");
+        assert!(matches!(
+            read_param(&msg),
+            Err(VsapiTypeError::DeserializationError(_))
+        ));
+    }
+
+    #[test]
+    fn ipv6_ptype_text_union_errors() {
+        let msg = text_param_msg("x", v1::ParamT::Ipv6, "not-bytes");
+        assert!(matches!(
+            read_param(&msg),
+            Err(VsapiTypeError::DeserializationError(_))
+        ));
+    }
+
+    // --- wrong byte lengths for IP types ---
+
+    #[test]
+    fn ipv4_too_few_bytes_errors() {
+        let msg = data_param_msg("x", v1::ParamT::Ipv4, &[1, 2, 3]);
+        assert!(matches!(
+            read_param(&msg),
+            Err(VsapiTypeError::DeserializationError(_))
+        ));
+    }
+
+    #[test]
+    fn ipv4_too_many_bytes_errors() {
+        let msg = data_param_msg("x", v1::ParamT::Ipv4, &[1, 2, 3, 4, 5]);
+        assert!(matches!(
+            read_param(&msg),
+            Err(VsapiTypeError::DeserializationError(_))
+        ));
+    }
+
+    #[test]
+    fn ipv4_zero_bytes_errors() {
+        let msg = data_param_msg("x", v1::ParamT::Ipv4, &[]);
+        assert!(matches!(
+            read_param(&msg),
+            Err(VsapiTypeError::DeserializationError(_))
+        ));
+    }
+
+    #[test]
+    fn ipv6_too_few_bytes_errors() {
+        let msg = data_param_msg("x", v1::ParamT::Ipv6, &[0u8; 15]);
+        assert!(matches!(
+            read_param(&msg),
+            Err(VsapiTypeError::DeserializationError(_))
+        ));
+    }
+
+    #[test]
+    fn ipv6_too_many_bytes_errors() {
+        let msg = data_param_msg("x", v1::ParamT::Ipv6, &[0u8; 17]);
+        assert!(matches!(
+            read_param(&msg),
+            Err(VsapiTypeError::DeserializationError(_))
+        ));
+    }
+}
