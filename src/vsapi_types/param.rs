@@ -28,6 +28,33 @@ pub struct Param {
     pub value: ParamValue,
 }
 
+impl Param {
+    pub fn new(name: String, value: ParamValue) -> Self {
+        Param { name, value }
+    }
+
+    pub fn new_str(name: String, value: String) -> Self {
+        Param {
+            name,
+            value: ParamValue::StrParam(value),
+        }
+    }
+
+    pub fn new_u64(name: String, value: u64) -> Self {
+        Param {
+            name,
+            value: ParamValue::U64Param(value),
+        }
+    }
+
+    pub fn new_ip(name: String, value: std::net::IpAddr) -> Self {
+        Param {
+            name,
+            value: ParamValue::IpParam(value),
+        }
+    }
+}
+
 impl TryFrom<v1::param::Reader<'_>> for Param {
     type Error = VsapiTypeError;
 
