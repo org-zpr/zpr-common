@@ -3,8 +3,8 @@ use std::net::IpAddr;
 use crate::vsapi::v1;
 use crate::vsapi_types::{
     ApiResponseError, AuthBlob, ChallengeAlg, Claim, CommFlag, ConnectRequest, Connection, DockPep,
-    EndpointT, IcmpPep, KeySet, PacketDesc, ServiceDescriptor, TcpUdpPep, Visa, VisaOp,
-    Param, ParamValue
+    EndpointT, IcmpPep, KeySet, PacketDesc, Param, ParamValue, ServiceDescriptor, TcpUdpPep, Visa,
+    VisaOp,
 };
 use crate::write_to::WriteTo;
 
@@ -201,18 +201,16 @@ impl WriteTo<v1::param::Builder<'_>> for Param {
                 bldr.set_ptype(v1::ParamT::String);
                 bldr.set_value_text(s);
             }
-            ParamValue::IpParam(ipa) => {
-                match ipa {
-                    IpAddr::V4(addr) => {
-                        bldr.set_ptype(v1::ParamT::Ipv4);
-                        bldr.set_value_data(&addr.octets());
-                    }
-                    IpAddr::V6(addr) => {
-                        bldr.set_ptype(v1::ParamT::Ipv6);
-                        bldr.set_value_data(&addr.octets());
-                    }
+            ParamValue::IpParam(ipa) => match ipa {
+                IpAddr::V4(addr) => {
+                    bldr.set_ptype(v1::ParamT::Ipv4);
+                    bldr.set_value_data(&addr.octets());
                 }
-            }
+                IpAddr::V6(addr) => {
+                    bldr.set_ptype(v1::ParamT::Ipv6);
+                    bldr.set_value_data(&addr.octets());
+                }
+            },
             ParamValue::U64Param(val) => {
                 bldr.set_ptype(v1::ParamT::U64);
                 bldr.set_value_u64(*val);
