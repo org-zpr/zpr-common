@@ -7,7 +7,7 @@ build:
 	cargo build --all-targets -F all
 
 test:
-	cargo test --verbose
+	cargo test --verbose --all-features
 
 check:
 	cargo fmt --check && cargo rustc --lib -- -D warnings
