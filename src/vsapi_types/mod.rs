@@ -5,6 +5,7 @@
 mod auth;
 mod error;
 mod packet;
+mod param;
 mod request;
 mod response;
 mod services;
@@ -17,6 +18,7 @@ mod writer;
 pub use auth::{AuthBlob, AuthCodeBlob, ChallengeAlg, SelfSignedBlob};
 pub use error::{ApiResponseError, ErrorCode, VsapiTypeError};
 pub use packet::{CommFlag, PacketDesc, VsapiFiveTuple, VsapiIpProtocol, vsapi_ip_number};
+pub use param::{Param, ParamValue, pname};
 pub use request::{Claim, ConnectRequest};
 pub use response::{Connection, Denied, DenyCode, DisconnectReason, VisaResponse};
 pub use services::{AuthServicesList, ServiceDescriptor};

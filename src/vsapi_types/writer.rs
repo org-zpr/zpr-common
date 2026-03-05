@@ -3,7 +3,8 @@ use std::net::IpAddr;
 use crate::vsapi::v1;
 use crate::vsapi_types::{
     ApiResponseError, AuthBlob, ChallengeAlg, Claim, CommFlag, ConnectRequest, Connection, DockPep,
-    EndpointT, IcmpPep, KeySet, PacketDesc, ServiceDescriptor, TcpUdpPep, Visa, VisaOp,
+    EndpointT, IcmpPep, KeySet, PacketDesc, Param, ParamValue, ServiceDescriptor, TcpUdpPep, Visa,
+    VisaOp,
 };
 use crate::write_to::WriteTo;
 
@@ -188,5 +189,32 @@ impl WriteTo<v1::connect_request::Builder<'_>> for ConnectRequest {
         let mut ip_bldr = bldr.reborrow().init_substrate_addr();
         self.substrate_addr.write_to(&mut ip_bldr);
         bldr.set_dock_interface(self.dock_interface);
+    }
+}
+
+impl WriteTo<v1::param::Builder<'_>> for Param {
+    fn write_to(&self, bldr: &mut v1::param::Builder<'_>) {
+        bldr.set_name(&self.name);
+
+        match &self.value {
+            ParamValue::StrParam(s) => {
+                bldr.set_ptype(v1::ParamT::String);
+                bldr.set_value_text(s);
+            }
+            ParamValue::IpParam(ipa) => match ipa {
+                IpAddr::V4(addr) => {
+                    bldr.set_ptype(v1::ParamT::Ipv4);
+                    bldr.set_value_data(&addr.octets());
+                }
+                IpAddr::V6(addr) => {
+                    bldr.set_ptype(v1::ParamT::Ipv6);
+                    bldr.set_value_data(&addr.octets());
+                }
+            },
+            ParamValue::U64Param(val) => {
+                bldr.set_ptype(v1::ParamT::U64);
+                bldr.set_value_u64(*val);
+            }
+        }
     }
 }
