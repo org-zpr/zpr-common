@@ -10,6 +10,9 @@ pub enum AttributeError {
 
     #[error("Invalid operation: {0}")]
     InvalidOperation(String),
+
+    #[error("Invalid prefix: {0}")]
+    InvalidPrefix(String),
 }
 
 #[derive(Debug, Error)]
