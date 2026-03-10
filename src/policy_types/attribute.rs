@@ -267,48 +267,44 @@ impl Attribute {
     }
 
     /// Special constructor for ZPR internal attributes with a single value.
-    ///
-    /// ## Panics
-    /// - if passed `name` does not start with `zpr`.
-    pub fn must_zpr_internal_attr<S: Into<String>, T: Into<String>>(name: S, value: T) -> Self {
-        if let Some(name_without_domain) = name
+    pub fn try_zpr_internal_attr<S: Into<String>, T: Into<String>>(
+        name: S,
+        value: T,
+    ) -> Result<Self, AttributeError> {
+        match name
             .into()
             .strip_prefix(&format!("{}.", ATTR_DOMAIN_ZPR_INTERNAL))
         {
-            match Attribute::tuple(name_without_domain)
+            Some(name_without_domain) => Attribute::tuple(name_without_domain)
                 .domain_hint(AttrDomain::ZprInternal)
                 .value(value)
-                .build()
-            {
-                Ok(atr) => atr,
-                Err(e) => panic!("invalid attribute: {}", e),
-            }
-        } else {
-            panic!("zpr internal attribute must start with 'zpr.'");
+                .build(),
+            None => Err(AttributeError::InvalidPrefix(format!(
+                "zpr internal attribute must start with {}.",
+                ATTR_DOMAIN_ZPR_INTERNAL
+            ))),
         }
     }
 
     /// Special constructor for ZPR internal attribute with single value but
     /// sets the MULTI_VALUE flag.
-    ///
-    /// ## Panics
-    /// - if passed `name` does not start with `zpr`.
-    pub fn must_zpr_internal_attr_mv<S: Into<String>, T: Into<String>>(name: S, value: T) -> Self {
-        if let Some(name_without_domain) = name
+    pub fn try_zpr_internal_attr_mv<S: Into<String>, T: Into<String>>(
+        name: S,
+        value: T,
+    ) -> Result<Self, AttributeError> {
+        match name
             .into()
             .strip_prefix(&format!("{}.", ATTR_DOMAIN_ZPR_INTERNAL))
         {
-            match Attribute::tuple(name_without_domain)
+            Some(name_without_domain) => Attribute::tuple(name_without_domain)
                 .domain_hint(AttrDomain::ZprInternal)
                 .multi()
                 .value(value)
-                .build()
-            {
-                Ok(atr) => atr,
-                Err(e) => panic!("invalid attribute: {}", e),
-            }
-        } else {
-            panic!("zpr internal attribute must start with 'zpr.'");
+                .build(),
+            None => Err(AttributeError::InvalidPrefix(format!(
+                "zpr internal attribute must start with {}.",
+                ATTR_DOMAIN_ZPR_INTERNAL
+            ))),
         }
     }
 
@@ -478,7 +474,8 @@ mod test {
 
     #[test]
     fn test_attrributes_internal() {
-        let a = Attribute::must_zpr_internal_attr("zpr.role", "admin");
+        let a =
+            Attribute::try_zpr_internal_attr("zpr.role", "admin").expect("zpr prefix not found");
         assert_eq!(a.domain, AttrDomain::ZprInternal);
         assert_eq!(a.name, "role");
         assert_eq!(a.values, Some(vec!["admin".to_string()]));
@@ -540,13 +537,15 @@ mod test {
 
     #[test]
     fn test_zplc_key_zpr_internal_attribute() {
-        let a = Attribute::must_zpr_internal_attr("zpr.adapter.cn", "test");
+        let a = Attribute::try_zpr_internal_attr("zpr.adapter.cn", "test")
+            .expect("zpr prefix not found");
         assert_eq!("zpr.adapter.cn", a.zplc_key());
     }
 
     #[test]
     fn test_zplc_key_zpr_internal_multi_valued() {
-        let a = Attribute::must_zpr_internal_attr_mv("zpr.roles", "admin");
+        let a = Attribute::try_zpr_internal_attr_mv("zpr.roles", "admin")
+            .expect("zpr prefix not found");
         assert_eq!("zpr.roles{}", a.zplc_key());
     }
 
@@ -574,7 +573,24 @@ mod test {
             .unwrap();
         assert_eq!("endpoint.ip", endpoint_attr.zplc_key());
 
-        let zpr_attr = Attribute::must_zpr_internal_attr("zpr.test", "value");
+        let zpr_attr =
+            Attribute::try_zpr_internal_attr("zpr.test", "value").expect("zpr prefix not found");
         assert_eq!("zpr.test", zpr_attr.zplc_key());
+    }
+
+    #[test]
+    fn test_attributes_internal_error() {
+        let a1 = Attribute::try_zpr_internal_attr("zdp.role", "admin");
+        assert!(a1.is_err());
+        let a2 = Attribute::try_zpr_internal_attr("role", "admin");
+        assert!(a2.is_err());
+    }
+
+    #[test]
+    fn test_attributes_internal_error_mv() {
+        let a1 = Attribute::try_zpr_internal_attr_mv("zdp.roles", "admin");
+        assert!(a1.is_err());
+        let a2 = Attribute::try_zpr_internal_attr_mv("roles", "admin");
+        assert!(a2.is_err());
     }
 }
