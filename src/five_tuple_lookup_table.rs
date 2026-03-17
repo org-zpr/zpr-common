@@ -1,12 +1,12 @@
-use rcu::RcuBox;
+use crate::packet_info::VisaId;
+use crate::vsapi_types::{HasFiveTuple, VsapiFiveTuple, VsapiIpProtocol};
 use ip_network_table_deps_treebitmap::IpLookupTable;
 use range_set_blaze::RangeMapBlaze;
+use rcu::RcuBox;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv6Addr};
 use std::ops::RangeInclusive;
 use std::sync::Arc;
-use crate::packet_info::VisaId;
-use crate::vsapi_types::{HasFiveTuple, VsapiFiveTuple, VsapiIpProtocol};
 
 pub type FiveTupleLookup = HashMap<IpAddr, Arc<IpLookupTable<Ipv6Addr, DstPortLookup>>>;
 pub type DstPortLookup = PortLookup<SrcPortLookup>;
@@ -346,11 +346,11 @@ impl ProtoAndId {
 mod tests {
     use super::*;
 
-    use std::time::SystemTime;
     use crate::packet_info::L3Type;
     use crate::vsapi_types;
-    use crate::vsapi_types::vsapi_ip_number;
     use crate::vsapi_types::Visa;
+    use crate::vsapi_types::vsapi_ip_number;
+    use std::time::SystemTime;
 
     fn make_visa(
         src_addr: [u8; 16],
