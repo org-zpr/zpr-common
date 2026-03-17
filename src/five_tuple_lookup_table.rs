@@ -1,14 +1,12 @@
-use crate::rcu::RcuBox;
-use crate::visa_table::Visa;
-
+use rcu::RcuBox;
 use ip_network_table_deps_treebitmap::IpLookupTable;
 use range_set_blaze::RangeMapBlaze;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv6Addr};
 use std::ops::RangeInclusive;
 use std::sync::Arc;
-use zpr::packet_info::VisaId;
-use zpr::vsapi_types::{VsapiFiveTuple, VsapiIpProtocol};
+use crate::packet_info::VisaId;
+use crate::vsapi_types::{HasFiveTuple, VsapiFiveTuple, VsapiIpProtocol};
 
 pub type FiveTupleLookup = HashMap<IpAddr, Arc<IpLookupTable<Ipv6Addr, DstPortLookup>>>;
 pub type DstPortLookup = PortLookup<SrcPortLookup>;
@@ -50,7 +48,7 @@ impl FiveTupleLookupTable {
         }
     }
 
-    pub fn build_table_from_hash(&self, visa_table: &HashMap<VisaId, Visa>) {
+    pub fn build_table_from_hash<T: HasFiveTuple>(&self, visa_table: &HashMap<VisaId, T>) {
         let mut dst_addr_intersection: FiveTupleLookup = HashMap::new();
         for (key, val) in self.table.get().iter() {
             dst_addr_intersection.insert(*key, val.clone());
@@ -61,7 +59,7 @@ impl FiveTupleLookupTable {
         self.table.write(Arc::new(dst_addr_intersection))
     }
 
-    pub fn insert_visa(&self, visa_id: VisaId, visa: Visa) {
+    pub fn insert_visa<T: HasFiveTuple>(&self, visa_id: VisaId, visa: T) {
         let mut table: FiveTupleLookup = HashMap::new();
         for (key, val) in self.table.get().iter() {
             table.insert(*key, val.clone());
@@ -70,8 +68,8 @@ impl FiveTupleLookupTable {
         self.table.write(Arc::new(table))
     }
 
-    fn add_one_visa(visa_id: VisaId, visa: &Visa, table: &mut FiveTupleLookup) {
-        let five_tuple = visa.ftuple;
+    fn add_one_visa<T: HasFiveTuple>(visa_id: VisaId, visa: &T, table: &mut FiveTupleLookup) {
+        let five_tuple = visa.get_five_tuple();
 
         // Create array for protocol
         let mut arr = Vec::new();
@@ -349,9 +347,10 @@ mod tests {
     use super::*;
 
     use std::time::SystemTime;
-    use zpr::packet_info::L3Type;
-    use zpr::vsapi_types;
-    use zpr::vsapi_types::vsapi_ip_number;
+    use crate::packet_info::L3Type;
+    use crate::vsapi_types;
+    use crate::vsapi_types::vsapi_ip_number;
+    use crate::vsapi_types::Visa;
 
     fn make_visa(
         src_addr: [u8; 16],
@@ -366,7 +365,7 @@ mod tests {
         } else {
             vsapi_types::DockPep::UDP(pep)
         };
-        let visa = vsapi_types::Visa::new(
+        vsapi_types::Visa::new(
             0,
             0,
             SystemTime::UNIX_EPOCH,
@@ -375,8 +374,7 @@ mod tests {
             dock_pep,
             vsapi_types::KeySet::default(),
             None,
-        );
-        Visa::new(visa)
+        )
     }
 
     #[test]
