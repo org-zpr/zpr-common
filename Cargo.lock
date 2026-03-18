@@ -3,12 +3,30 @@
 version = 4
 
 [[package]]
+name = "aarc"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2983a0444d84c8c444870d9ec8df75d540d042fb4ca7160829c83721f214264f"
+dependencies = [
+ "fast-smr",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddd31a130427c27518df266943a5308ed92d4b226cc639f5a8f1002816174301"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "arc-swap"
+version = "1.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9f3647c145568cec02c42054e07bdf9a5a698e15b466fb2341bfc393cd24aa5"
+dependencies = [
+ "rustversion",
 ]
 
 [[package]]
@@ -95,6 +113,12 @@ name = "embedded-io"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9eb1aa714776b75c7e67e1da744b81a129b3ff919c8712b5e1b32252c1f07cc7"
+
+[[package]]
+name = "fast-smr"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcea4fcb715ad4ec7c2b3d89b261bacc2cbf5f7770cc392b8b8b2d480f0398c6"
 
 [[package]]
 name = "find-msvc-tools"
@@ -409,6 +433,8 @@ dependencies = [
 name = "rcu"
 version = "0.1.0"
 dependencies = [
+ "aarc",
+ "arc-swap",
  "crossbeam-epoch",
  "cslab",
 ]
