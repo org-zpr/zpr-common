@@ -175,10 +175,10 @@ impl Visa {
         };
     }
 
-    /// Get the expiration in milliseconds since UNIX epoch (which is how visa service formats it).
+    /// Get the expiration in seconds since UNIX epoch (which is how visa service formats it).
     pub fn get_expiration_timestamp(&self) -> u64 {
         match self.expires.duration_since(UNIX_EPOCH) {
-            Ok(dur) => dur.as_millis() as u64,
+            Ok(dur) => dur.as_secs(),
             Err(_) => 0,
         }
     }
