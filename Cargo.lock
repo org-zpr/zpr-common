@@ -87,7 +87,7 @@ checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 [[package]]
 name = "cslab"
 version = "0.1.2"
-source = "git+https://github.com/org-zpr/zpr-utils.git?tag=rcu-v0.1.0#17e29a1686ac91e5fb0bd1eecc0a680f53ea1a97"
+source = "git+https://github.com/org-zpr/zpr-utils.git?tag=cslab-v0.1.2#17e29a1686ac91e5fb0bd1eecc0a680f53ea1a97"
 dependencies = [
  "loom",
 ]
@@ -432,8 +432,8 @@ dependencies = [
 
 [[package]]
 name = "rcu"
-version = "0.1.0"
-source = "git+https://github.com/org-zpr/zpr-utils.git?tag=rcu-v0.1.0#17e29a1686ac91e5fb0bd1eecc0a680f53ea1a97"
+version = "0.1.1"
+source = "git+https://github.com/org-zpr/zpr-utils.git?tag=rcu-v0.1.1#6e902ce89d9e6ca0a77c8df2b713c97de88f52f5"
 dependencies = [
  "aarc",
  "arc-swap",
