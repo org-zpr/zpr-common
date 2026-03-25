@@ -23,6 +23,11 @@ pub struct Visa {
     pub cons: Option<Constraints>,
 }
 
+// Used to combine two src port levels, two dst port levels, or two proto levels
+pub trait HasFiveTuple {
+    fn get_five_tuple(&self) -> VsapiFiveTuple;
+}
+
 #[derive(Debug, Clone)]
 pub enum DockPep {
     TCP(TcpUdpPep),
@@ -126,8 +131,18 @@ impl Visa {
         Visa::try_from(visa_reader)
     }
 
+    /// Get the expiration in milliseconds since UNIX epoch (which is how visa service formats it).
+    pub fn get_expiration_timestamp(&self) -> u64 {
+        match self.expires.duration_since(UNIX_EPOCH) {
+            Ok(dur) => dur.as_millis() as u64,
+            Err(_) => 0,
+        }
+    }
+}
+
+impl HasFiveTuple for Visa {
     /// Get the FiveTuple from a Visa
-    pub fn get_five_tuple(&self) -> VsapiFiveTuple {
+    fn get_five_tuple(&self) -> VsapiFiveTuple {
         let source_addr = self.source_addr;
         let dest_addr = self.dest_addr;
 
@@ -173,14 +188,6 @@ impl Visa {
             source_port,
             dest_port,
         };
-    }
-
-    /// Get the expiration in milliseconds since UNIX epoch (which is how visa service formats it).
-    pub fn get_expiration_timestamp(&self) -> u64 {
-        match self.expires.duration_since(UNIX_EPOCH) {
-            Ok(dur) => dur.as_millis() as u64,
-            Err(_) => 0,
-        }
     }
 }
 
