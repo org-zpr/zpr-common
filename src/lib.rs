@@ -5,6 +5,9 @@ pub mod dn;
 pub mod packet_info;
 pub mod write_to;
 
+#[cfg(feature = "vsapi")]
+pub mod five_tuple_lookup_table;
+
 #[cfg(feature = "policy")]
 pub mod policy_types;
 
