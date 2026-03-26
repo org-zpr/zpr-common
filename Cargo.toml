@@ -1,6 +1,6 @@
 [package]
 name = "zpr"
-version = "0.10.2"
+version = "0.11.0"
 edition = "2024"
 license = "Apache-2.0"
 
@@ -18,7 +18,6 @@ rcu = { git = "https://github.com/org-zpr/zpr-utils.git", tag = "zpr-utils-v0.1.
 capnpc = "0.25"
 
 [features]
-default = ["rcu-crossbeam-epoch"]
 rcu-aarc = ["rcu/rcu-aarc", "rcu"]
 rcu-arc-swap = ["rcu/rcu-arc-swap", "rcu"]
 rcu-crossbeam-epoch = ["rcu/rcu-crossbeam-epoch", "rcu"]
