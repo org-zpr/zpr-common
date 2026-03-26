@@ -25,7 +25,8 @@ pub use services::{AuthServicesList, ServiceDescriptor};
 pub use util::ip::ip_addr_from_vec;
 pub use util::time::visa_expiration_timestamp_to_system_time;
 pub use visa::{
-    Constraints, DockPep, EndpointT, IcmpPep, KeyFormat, KeySet, TcpUdpPep, Visa, VisaOp,
+    Constraints, DockPep, EndpointT, HasFiveTuple, IcmpPep, KeyFormat, KeySet, TcpUdpPep, Visa,
+    VisaOp,
 };
 pub use vsnet::SockAddr;
 

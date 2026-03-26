@@ -10,11 +10,19 @@ open-enum = { version = "0.5" }
 zerocopy = { version = "0.8", features = ["derive"] }
 thiserror = "1.0.65"
 url = "2.5.4"
+range-set-blaze = { version = "0.5.0" }
+ip_network_table-deps-treebitmap = { version = "0.5.0" }
+rcu = { git = "https://github.com/org-zpr/zpr-utils.git", tag = "zpr-utils-v0.1.0", default-features = false, optional = true }
 
 [build-dependencies]
 capnpc = "0.25"
 
 [features]
+rcu-aarc = ["rcu/rcu-aarc", "rcu"]
+rcu-arc-swap = ["rcu/rcu-arc-swap", "rcu"]
+rcu-crossbeam-epoch = ["rcu/rcu-crossbeam-epoch", "rcu"]
+rcu-mutex-arc = ["rcu/rcu-mutex-arc", "rcu"]
+rcu-rwlock = ["rcu/rcu-rwlock", "rcu"]
 policy = ["capnp"]
 vsapi = ["capnp"]
 all = ["policy", "vsapi"]
