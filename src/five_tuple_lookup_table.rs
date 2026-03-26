@@ -1,4 +1,4 @@
-#[cfg(any(feature = "rcu-aarc", feature = "rcu-arc-swap", feature = "rcu-crossbeam-epoch", feature = "rcu-mutex-arc", feature = "rcu-rwlock"))]
+#![cfg(any(feature = "rcu-aarc", feature = "rcu-arc-swap", feature = "rcu-crossbeam-epoch", feature = "rcu-mutex-arc", feature = "rcu-rwlock"))]
 
 use crate::packet_info::VisaId;
 use crate::vsapi_types::{HasFiveTuple, VsapiFiveTuple, VsapiIpProtocol};
