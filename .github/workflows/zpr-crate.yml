@@ -24,6 +24,6 @@ jobs:
     with:
       name: 'zpr_crate'
       needs-capnp: true
-      features: 'policy,vsapi'
+      features: 'policy,vsapi,rcu-crossbeam-epoch'
     secrets:
       ZPR_CICD_RO_TOKEN: ${{ secrets.ZPR_CICD_RO_TOKEN }}

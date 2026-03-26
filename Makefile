@@ -7,7 +7,7 @@ build:
 	cargo build --all-targets -F all
 
 test:
-	cargo test --verbose -F policy,vsapi
+	cargo test --verbose -F policy,vsapi,rcu-crossbeam-epoch
 
 check:
 	cargo fmt --check && cargo rustc --lib -- -D warnings
