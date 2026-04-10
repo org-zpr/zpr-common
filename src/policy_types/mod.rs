@@ -1,8 +1,10 @@
 //! Shared implementations of types related to the policy Capn Proto.
 
+mod attr_exp;
 mod attribute;
 mod error;
 mod join;
+mod topology;
 mod writer;
 
 pub use attribute::{AttrDomain, Attribute};
