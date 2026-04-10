@@ -5,6 +5,7 @@ use std::fmt::Write;
 pub const ATTR_DOMAIN_SERVICE: &str = "service";
 pub const ATTR_DOMAIN_USER: &str = "user";
 pub const ATTR_DOMAIN_ENDPOINT: &str = "endpoint";
+pub const ATTR_DOMAIN_LINK: &str = "link";
 pub const ATTR_DOMAIN_ZPR_INTERNAL: &str = "zpr";
 
 /// A ZPL attribute. Could be a tuple type attribute, eg "user.role:marketing" or a
@@ -29,6 +30,7 @@ pub enum AttrDomain {
     Endpoint,
     User,
     Service,
+    Link,
     ZprInternal, // For compiler/visa-service use only
 }
 
@@ -38,6 +40,7 @@ impl fmt::Display for AttrDomain {
             AttrDomain::Endpoint => write!(f, "{}", ATTR_DOMAIN_ENDPOINT),
             AttrDomain::User => write!(f, "{}", ATTR_DOMAIN_USER),
             AttrDomain::Service => write!(f, "{}", ATTR_DOMAIN_SERVICE),
+            AttrDomain::Link => write!(f, "{}", ATTR_DOMAIN_LINK),
             AttrDomain::ZprInternal => write!(f, "{}", ATTR_DOMAIN_ZPR_INTERNAL),
             AttrDomain::Unspecified => write!(f, "UNSPECIFIED"),
         }

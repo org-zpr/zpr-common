@@ -1,3 +1,4 @@
+use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use crate::policy::v1;
@@ -28,6 +29,33 @@ pub enum NetworkHost {
 pub struct SubstrateAddr {
     pub host: NetworkHost,
     pub port: u16,
+}
+
+impl SubstrateAddr {
+    /// If the passed `ip_or_host` parses as a valid IP address, it is treated as an IP.
+    /// Otherwise, it is treated as a hostname.
+    pub fn new_for_ip_or_host(ip_or_host: &str, port: u16) -> Self {
+        if let Ok(ip) = ip_or_host.parse::<IpAddr>() {
+            SubstrateAddr {
+                host: NetworkHost::Ip(ip),
+                port,
+            }
+        } else {
+            SubstrateAddr {
+                host: NetworkHost::Hostname(ip_or_host.to_string()),
+                port,
+            }
+        }
+    }
+}
+
+impl fmt::Display for NetworkHost {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NetworkHost::Ip(ip) => write!(f, "{}", ip),
+            NetworkHost::Hostname(hostname) => write!(f, "{}", hostname),
+        }
+    }
 }
 
 impl TryFrom<v1::net_addr::Reader<'_>> for SubstrateAddr {
