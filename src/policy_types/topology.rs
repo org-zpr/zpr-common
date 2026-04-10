@@ -11,37 +11,37 @@ use crate::write_to::WriteTo;
 pub struct Peering {
     pub link_id: String,
     pub node_a: IpAddr, // by convention we are using ZPR address
-    pub substrate_a: SubstrateAddr,
+    pub substrate_a: NetAddr,
     pub node_b: IpAddr, // by convention we are using ZPR address
-    pub substrate_b: SubstrateAddr,
+    pub substrate_b: NetAddr,
     pub attributes: Vec<AttrExp>,
 }
 
 /// Either a host name or an IP address.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Hash)]
 pub enum NetworkHost {
     Ip(IpAddr),
     Hostname(String),
 }
 
 /// Maps to a Cap'n Proto `NetAddr`
-#[derive(Debug, PartialEq)]
-pub struct SubstrateAddr {
+#[derive(Debug, PartialEq, Hash)]
+pub struct NetAddr {
     pub host: NetworkHost,
     pub port: u16,
 }
 
-impl SubstrateAddr {
+impl NetAddr {
     /// If the passed `ip_or_host` parses as a valid IP address, it is treated as an IP.
     /// Otherwise, it is treated as a hostname.
     pub fn new_for_ip_or_host(ip_or_host: &str, port: u16) -> Self {
         if let Ok(ip) = ip_or_host.parse::<IpAddr>() {
-            SubstrateAddr {
+            NetAddr {
                 host: NetworkHost::Ip(ip),
                 port,
             }
         } else {
-            SubstrateAddr {
+            NetAddr {
                 host: NetworkHost::Hostname(ip_or_host.to_string()),
                 port,
             }
@@ -58,7 +58,7 @@ impl fmt::Display for NetworkHost {
     }
 }
 
-impl TryFrom<v1::net_addr::Reader<'_>> for SubstrateAddr {
+impl TryFrom<v1::net_addr::Reader<'_>> for NetAddr {
     type Error = PolicyTypeError;
 
     fn try_from(reader: v1::net_addr::Reader<'_>) -> Result<Self, Self::Error> {
@@ -69,14 +69,14 @@ impl TryFrom<v1::net_addr::Reader<'_>> for SubstrateAddr {
                 if ip.len() == 4 {
                     let octets: [u8; 4] = ip.try_into().expect("IP length checked above");
                     let ipv4_addr = Ipv4Addr::from(octets);
-                    return Ok(SubstrateAddr {
+                    return Ok(NetAddr {
                         host: NetworkHost::Ip(IpAddr::V4(ipv4_addr)),
                         port,
                     });
                 } else if ip.len() == 16 {
                     let octets: [u8; 16] = ip.try_into().expect("IP length checked above");
                     let ipv6_addr = Ipv6Addr::from(octets);
-                    return Ok(SubstrateAddr {
+                    return Ok(NetAddr {
                         host: NetworkHost::Ip(IpAddr::V6(ipv6_addr)),
                         port,
                     });
@@ -86,7 +86,7 @@ impl TryFrom<v1::net_addr::Reader<'_>> for SubstrateAddr {
             }
             v1::net_addr::Hostname(hostname) => {
                 let hostname_str = hostname?.to_string()?;
-                Ok(SubstrateAddr {
+                Ok(NetAddr {
                     host: NetworkHost::Hostname(hostname_str),
                     port,
                 })
@@ -104,10 +104,10 @@ impl TryFrom<v1::peering::Reader<'_>> for Peering {
         // NOTE: In Capn Proto the node identifiers are strings. For time being we are using the
         // node ZPR address.
         let node_a: IpAddr = reader.get_node_a()?.to_string()?.parse()?;
-        let substrate_a: SubstrateAddr = reader.get_node_a_substrate()?.try_into()?;
+        let substrate_a: NetAddr = reader.get_node_a_substrate()?.try_into()?;
 
         let node_b: IpAddr = reader.get_node_b()?.to_string()?.parse()?;
-        let substrate_b: SubstrateAddr = reader.get_node_b_substrate()?.try_into()?;
+        let substrate_b: NetAddr = reader.get_node_b_substrate()?.try_into()?;
 
         let mut attributes = Vec::new();
         for attr in reader.get_attrs()?.iter() {
@@ -142,7 +142,7 @@ impl WriteTo<v1::peering::Builder<'_>> for Peering {
     }
 }
 
-impl WriteTo<v1::net_addr::Builder<'_>> for SubstrateAddr {
+impl WriteTo<v1::net_addr::Builder<'_>> for NetAddr {
     fn write_to(&self, bldr: &mut v1::net_addr::Builder) {
         bldr.set_port(self.port);
         match &self.host {
@@ -195,12 +195,12 @@ mod tests {
 
     fn read_substrate(
         msg: &capnp::message::Builder<capnp::message::HeapAllocator>,
-    ) -> Result<SubstrateAddr, PolicyTypeError> {
+    ) -> Result<NetAddr, PolicyTypeError> {
         let reader: v1::net_addr::Reader<'_> = msg.get_root_as_reader().unwrap();
-        SubstrateAddr::try_from(reader)
+        NetAddr::try_from(reader)
     }
 
-    // --- SubstrateAddr deserialization ---
+    // --- NetAddr deserialization ---
 
     #[test]
     fn test_substrate_ipv4() {
@@ -260,12 +260,12 @@ mod tests {
         assert!(read_substrate(&msg).is_err());
     }
 
-    // --- SubstrateAddr roundtrip (WriteTo + TryFrom) ---
+    // --- NetAddr roundtrip (WriteTo + TryFrom) ---
 
     #[test]
     fn test_substrate_roundtrip_ipv4() {
-        // write_to then TryFrom preserves an IPv4 SubstrateAddr
-        let original = SubstrateAddr {
+        // write_to then TryFrom preserves an IPv4 NetAddr
+        let original = NetAddr {
             host: NetworkHost::Ip(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1))),
             port: 7000,
         };
@@ -275,15 +275,15 @@ mod tests {
             original.write_to(&mut root);
         }
         let reader: v1::net_addr::Reader<'_> = msg.get_root_as_reader().unwrap();
-        let result = SubstrateAddr::try_from(reader).unwrap();
+        let result = NetAddr::try_from(reader).unwrap();
         assert_eq!(result, original);
     }
 
     #[test]
     fn test_substrate_roundtrip_ipv6() {
-        // write_to then TryFrom preserves an IPv6 SubstrateAddr
+        // write_to then TryFrom preserves an IPv6 NetAddr
         let bytes = [0u8; 16]; // ::0
-        let original = SubstrateAddr {
+        let original = NetAddr {
             host: NetworkHost::Ip(IpAddr::V6(Ipv6Addr::from(bytes))),
             port: 6000,
         };
@@ -293,14 +293,14 @@ mod tests {
             original.write_to(&mut root);
         }
         let reader: v1::net_addr::Reader<'_> = msg.get_root_as_reader().unwrap();
-        let result = SubstrateAddr::try_from(reader).unwrap();
+        let result = NetAddr::try_from(reader).unwrap();
         assert_eq!(result, original);
     }
 
     #[test]
     fn test_substrate_roundtrip_hostname() {
-        // write_to then TryFrom preserves a hostname SubstrateAddr
-        let original = SubstrateAddr {
+        // write_to then TryFrom preserves a hostname NetAddr
+        let original = NetAddr {
             host: NetworkHost::Hostname("gw.internal".to_string()),
             port: 1234,
         };
@@ -310,7 +310,7 @@ mod tests {
             original.write_to(&mut root);
         }
         let reader: v1::net_addr::Reader<'_> = msg.get_root_as_reader().unwrap();
-        let result = SubstrateAddr::try_from(reader).unwrap();
+        let result = NetAddr::try_from(reader).unwrap();
         assert_eq!(result, original);
     }
 
@@ -322,12 +322,12 @@ mod tests {
         let original = Peering {
             link_id: "link-001".to_string(),
             node_a: IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)),
-            substrate_a: SubstrateAddr {
+            substrate_a: NetAddr {
                 host: NetworkHost::Ip(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1))),
                 port: 5000,
             },
             node_b: IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)),
-            substrate_b: SubstrateAddr {
+            substrate_b: NetAddr {
                 host: NetworkHost::Hostname("host-b.net".to_string()),
                 port: 5001,
             },
@@ -352,12 +352,12 @@ mod tests {
         let original = Peering {
             link_id: "link-002".to_string(),
             node_a: IpAddr::V4(Ipv4Addr::new(10, 0, 1, 1)),
-            substrate_a: SubstrateAddr {
+            substrate_a: NetAddr {
                 host: NetworkHost::Ip(IpAddr::V4(Ipv4Addr::new(172, 16, 0, 1))),
                 port: 4000,
             },
             node_b: IpAddr::V4(Ipv4Addr::new(10, 0, 1, 2)),
-            substrate_b: SubstrateAddr {
+            substrate_b: NetAddr {
                 host: NetworkHost::Ip(IpAddr::V4(Ipv4Addr::new(172, 16, 0, 2))),
                 port: 4001,
             },

@@ -362,6 +362,8 @@ impl Attribute {
             Ok((AttrDomain::User, renamed.to_string()))
         } else if let Some(renamed) = key.strip_prefix(&format!("{}.", ATTR_DOMAIN_SERVICE)) {
             Ok((AttrDomain::Service, renamed.to_string()))
+        } else if let Some(renamed) = key.strip_prefix(&format!("{}.", ATTR_DOMAIN_LINK)) {
+            Ok((AttrDomain::Link, renamed.to_string()))
         } else {
             Err(AttributeError::InvalidDomain(key.to_string()))
         }
@@ -579,6 +581,26 @@ mod test {
         let zpr_attr =
             Attribute::try_zpr_internal_attr("zpr.test", "value").expect("zpr prefix not found");
         assert_eq!("zpr.test", zpr_attr.zplc_key());
+    }
+
+    #[test]
+    fn test_parse_domain_link() {
+        let (domain, name) = Attribute::parse_domain("link.bandwidth").unwrap();
+        assert_eq!(domain, AttrDomain::Link);
+        assert_eq!(name, "bandwidth");
+
+        // Verify round-trip via builder
+        let a = Attribute::tuple("link.bandwidth")
+            .single()
+            .value("1Gbps")
+            .build()
+            .unwrap();
+        assert_eq!(a.domain, AttrDomain::Link);
+        assert_eq!(a.name, "bandwidth");
+        assert_eq!(a.values, Some(vec!["1Gbps".to_string()]));
+        assert_eq!("link.bandwidth:1Gbps", a.to_instance_string());
+        assert_eq!("link.bandwidth", a.zpl_key());
+        assert_eq!("link.bandwidth", a.zplc_key());
     }
 
     #[test]
