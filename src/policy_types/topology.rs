@@ -179,8 +179,9 @@ mod tests {
         // IPv4 address (4 bytes) deserializes to the correct IpAddr::V4
         let msg = make_net_addr_ip(&[192, 168, 1, 1], 8080);
         let addr = read_substrate(&msg).unwrap();
-        assert!(
-            matches!(addr.host, NetworkHost::Ip(IpAddr::V4(a)) if a == Ipv4Addr::new(192, 168, 1, 1))
+        assert_eq!(
+            addr.host,
+            NetworkHost::Ip(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)))
         );
         assert_eq!(addr.port, 8080);
     }
@@ -191,7 +192,10 @@ mod tests {
         let bytes = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1u8];
         let msg = make_net_addr_ip(&bytes, 9000);
         let addr = read_substrate(&msg).unwrap();
-        assert!(matches!(addr.host, NetworkHost::Ip(IpAddr::V6(a)) if a == Ipv6Addr::from(bytes)));
+        assert_eq!(
+            addr.host,
+            NetworkHost::Ip(IpAddr::V6(Ipv6Addr::from(bytes)))
+        );
         assert_eq!(addr.port, 9000);
     }
 
@@ -200,7 +204,10 @@ mod tests {
         // Hostname variant deserializes correctly with port
         let msg = make_net_addr_hostname("node.example.com", 443);
         let addr = read_substrate(&msg).unwrap();
-        assert!(matches!(addr.host, NetworkHost::Hostname(ref h) if h == "node.example.com"));
+        assert_eq!(
+            addr.host,
+            NetworkHost::Hostname("node.example.com".to_string())
+        );
         assert_eq!(addr.port, 443);
     }
 
@@ -241,10 +248,7 @@ mod tests {
         }
         let reader: v1::net_addr::Reader<'_> = msg.get_root_as_reader().unwrap();
         let result = SubstrateAddr::try_from(reader).unwrap();
-        assert!(
-            matches!(result.host, NetworkHost::Ip(IpAddr::V4(a)) if a == Ipv4Addr::new(10, 0, 0, 1))
-        );
-        assert_eq!(result.port, 7000);
+        assert_eq!(result, original);
     }
 
     #[test]
@@ -262,10 +266,7 @@ mod tests {
         }
         let reader: v1::net_addr::Reader<'_> = msg.get_root_as_reader().unwrap();
         let result = SubstrateAddr::try_from(reader).unwrap();
-        assert!(
-            matches!(result.host, NetworkHost::Ip(IpAddr::V6(a)) if a == Ipv6Addr::from(bytes))
-        );
-        assert_eq!(result.port, 6000);
+        assert_eq!(result, original);
     }
 
     #[test]
@@ -282,8 +283,7 @@ mod tests {
         }
         let reader: v1::net_addr::Reader<'_> = msg.get_root_as_reader().unwrap();
         let result = SubstrateAddr::try_from(reader).unwrap();
-        assert!(matches!(result.host, NetworkHost::Hostname(ref h) if h == "gw.internal"));
-        assert_eq!(result.port, 1234);
+        assert_eq!(result, original);
     }
 
     // --- Peering roundtrip (WriteTo + TryFrom) ---
