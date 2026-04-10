@@ -7,7 +7,9 @@ mod join;
 mod topology;
 mod writer;
 
+pub use attr_exp::{AttrExp, AttrOp};
 pub use attribute::{AttrDomain, Attribute};
 pub use error::{AttributeError, PolicyTypeError};
 pub use join::{JoinPolicy, PFlags, Scope, ScopeFlag, Service, ServiceType};
+pub use topology::{NetworkHost, Peering, SubstrateAddr};
 pub use writer::write_attributes;
