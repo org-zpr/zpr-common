@@ -41,7 +41,6 @@ pub enum DisconnectReason {
 /// Denial code, match the codes in vs.capnp, except for Fail
 #[derive(Debug, Eq, PartialEq)]
 pub enum DenyCode {
-    Fail,
     NoReason,
     NoMatch,
     Denied,
@@ -50,6 +49,7 @@ pub enum DenyCode {
     SourceAuthError,
     DestAuthError,
     QuotaExceeded,
+    NoRoute,
 }
 
 impl Connection {
@@ -128,6 +128,7 @@ impl From<v1::VisaDenyCode> for DenyCode {
             v1::VisaDenyCode::SourceAuthError => DenyCode::SourceAuthError,
             v1::VisaDenyCode::DestAuthError => DenyCode::DestAuthError,
             v1::VisaDenyCode::QuotaExceeded => DenyCode::QuotaExceeded,
+            v1::VisaDenyCode::NoRoute => DenyCode::NoRoute,
         }
     }
 }
@@ -143,7 +144,7 @@ impl From<DenyCode> for v1::VisaDenyCode {
             DenyCode::SourceAuthError => v1::VisaDenyCode::SourceAuthError,
             DenyCode::DestAuthError => v1::VisaDenyCode::DestAuthError,
             DenyCode::QuotaExceeded => v1::VisaDenyCode::QuotaExceeded,
-            DenyCode::Fail => v1::VisaDenyCode::NoReason, // No direct mapping (TODO: remove Fail)
+            DenyCode::NoRoute => v1::VisaDenyCode::NoRoute,
         }
     }
 }
