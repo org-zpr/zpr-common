@@ -31,4 +31,7 @@ pub enum PolicyTypeError {
 
     #[error("Cap'n Proto utf8 error: {0}")]
     Utf8Error(#[from] core::str::Utf8Error),
+
+    #[error("IP address parse error: {0}")]
+    AddrParseError(#[from] std::net::AddrParseError),
 }

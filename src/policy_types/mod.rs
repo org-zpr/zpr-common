@@ -1,11 +1,15 @@
 //! Shared implementations of types related to the policy Capn Proto.
 
+mod attr_exp;
 mod attribute;
 mod error;
 mod join;
+mod topology;
 mod writer;
 
+pub use attr_exp::{AttrExp, AttrOp};
 pub use attribute::{AttrDomain, Attribute};
 pub use error::{AttributeError, PolicyTypeError};
 pub use join::{JoinPolicy, PFlags, Scope, ScopeFlag, Service, ServiceType};
+pub use topology::{NetAddr, NetworkHost, Peering};
 pub use writer::write_attributes;
