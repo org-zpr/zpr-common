@@ -9,6 +9,7 @@ mod param;
 mod request;
 mod response;
 mod services;
+mod topo;
 mod util;
 mod visa;
 mod vsnet;
@@ -28,6 +29,7 @@ pub use visa::{
     Constraints, DockPep, EndpointT, HasFiveTuple, IcmpPep, KeyFormat, KeySet, TcpUdpPep, Visa,
     VisaOp,
 };
+pub use topo::{Link, LinkRole};
 pub use vsnet::SockAddr;
 
 #[cfg(test)]

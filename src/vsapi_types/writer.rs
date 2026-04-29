@@ -3,10 +3,30 @@ use std::net::IpAddr;
 use crate::vsapi::v1;
 use crate::vsapi_types::{
     ApiResponseError, AuthBlob, ChallengeAlg, Claim, CommFlag, ConnectRequest, Connection, DockPep,
-    EndpointT, IcmpPep, KeySet, PacketDesc, Param, ParamValue, ServiceDescriptor, TcpUdpPep, Visa,
-    VisaOp,
+    EndpointT, IcmpPep, KeySet, Link, LinkRole, PacketDesc, Param, ParamValue, ServiceDescriptor,
+    SockAddr, TcpUdpPep, Visa, VisaOp,
 };
 use crate::write_to::WriteTo;
+
+impl WriteTo<v1::sock_addr::Builder<'_>> for SockAddr {
+    fn write_to(&self, bldr: &mut v1::sock_addr::Builder<'_>) {
+        let mut addr_bldr = bldr.reborrow().init_addr();
+        self.addr.write_to(&mut addr_bldr);
+        bldr.set_port(self.port);
+    }
+}
+
+impl WriteTo<v1::link::Builder<'_>> for Link {
+    fn write_to(&self, bldr: &mut v1::link::Builder<'_>) {
+        bldr.set_link_id(&self.link_id);
+        let mut peer_bldr = bldr.reborrow().init_peer();
+        self.peer.write_to(&mut peer_bldr);
+        bldr.set_role(match self.role {
+            LinkRole::Active => v1::LinkRole::Active,
+            LinkRole::Backup => v1::LinkRole::Backup,
+        });
+    }
+}
 
 impl WriteTo<v1::ip_addr::Builder<'_>> for IpAddr {
     fn write_to(&self, bldr: &mut v1::ip_addr::Builder<'_>) {
