@@ -18,14 +18,14 @@ pub struct Peering {
 }
 
 /// Either a host name or an IP address.
-#[derive(Debug, PartialEq, Hash)]
+#[derive(Debug, PartialEq, Hash, Clone)]
 pub enum NetworkHost {
     Ip(IpAddr),
     Hostname(String),
 }
 
 /// Maps to a Cap'n Proto `NetAddr`
-#[derive(Debug, PartialEq, Hash)]
+#[derive(Debug, PartialEq, Hash, Clone)]
 pub struct NetAddr {
     pub host: NetworkHost,
     pub port: u16,
