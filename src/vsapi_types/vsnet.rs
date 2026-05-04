@@ -2,7 +2,7 @@ use crate::vsapi::v1;
 use crate::vsapi_types::VsapiTypeError;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SockAddr {
     pub addr: IpAddr,
     pub port: u16,
