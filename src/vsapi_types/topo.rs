@@ -14,13 +14,11 @@ pub struct Link {
     pub role: LinkRole,
 }
 
-impl TryFrom<v1::LinkRole> for LinkRole {
-    type Error = VsapiTypeError;
-
-    fn try_from(r: v1::LinkRole) -> Result<Self, Self::Error> {
+impl From<v1::LinkRole> for LinkRole {
+    fn from(r: v1::LinkRole) -> Self {
         match r {
-            v1::LinkRole::Active => Ok(LinkRole::Active),
-            v1::LinkRole::Backup => Ok(LinkRole::Backup),
+            v1::LinkRole::Active => LinkRole::Active,
+            v1::LinkRole::Backup => LinkRole::Backup,
         }
     }
 }
@@ -31,7 +29,7 @@ impl TryFrom<v1::link::Reader<'_>> for Link {
     fn try_from(reader: v1::link::Reader<'_>) -> Result<Self, Self::Error> {
         let link_id = reader.get_link_id()?.to_string()?;
         let peer = SockAddr::try_from(reader.get_peer()?)?;
-        let role = LinkRole::try_from(reader.get_role()?)?;
+        let role = LinkRole::from(reader.get_role()?);
         Ok(Link {
             link_id,
             peer,
