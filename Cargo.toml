@@ -6,6 +6,7 @@ license = "Apache-2.0"
 
 [dependencies]
 capnp = { version = "0.25", optional = true }
+criterion = { version = "0.8.2 "}
 open-enum = { version = "0.5" }
 zerocopy = { version = "0.8", features = ["derive"] }
 thiserror = "1.0.65"
@@ -13,6 +14,7 @@ url = "2.5.4"
 range-set-blaze = { version = "0.5.0" }
 ip_network_table-deps-treebitmap = { version = "0.5.0" }
 rcu = { git = "https://github.com/org-zpr/zpr-utils.git", tag = "zpr-utils-v0.1.0", default-features = false, optional = true }
+rand = "0.10.1"
 
 [build-dependencies]
 capnpc = "0.25"
@@ -26,3 +28,7 @@ rcu-rwlock = ["rcu/rcu-rwlock", "rcu"]
 policy = ["capnp"]
 vsapi = ["capnp"]
 all = ["policy", "vsapi"]
+
+[[bench]]
+name = "ft_lookup_benchmark"
+harness = false

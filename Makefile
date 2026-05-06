@@ -1,5 +1,5 @@
 
-.PHONY: all build test clean check submodules-pull submodules-update
+.PHONY: all build test clean check submodules-pull submodules-update bench
 
 all: build
 
@@ -24,5 +24,9 @@ submodules-pull:
 # to has been updated
 submodules-update:
 	git submodule update --remote --merge
+
+bench: 
+	cargo bench --features vsapi,rcu-aarc
+
 
 .DEFAULT_GOAL := all
