@@ -18,8 +18,9 @@ pub struct Visa {
     pub config: i64,
     pub expires: SystemTime,
     pub visa_type: VisaType,
+    /// Required for type [VisaType::Full], will not be set for type [VisaType::ForwardOnly]
     pub dock_pep: Option<DockPep>,
-    /// Required for type `ForwardOnly`, optional for type `Full`
+    /// Required for type [VisaType::ForwardOnly], optional for type [VisaType::Full]
     pub fwd_pep: Option<FwdPep>,
     pub cons: Option<Constraints>,
 }

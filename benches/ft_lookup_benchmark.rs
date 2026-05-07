@@ -168,10 +168,7 @@ mod bench_impl {
         let dest = addr_bytes_from_usize(1);
         let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::with_capacity(n + 1);
         let mut fts = Vec::with_capacity(n);
-        hash.insert(
-            1,
-            make_ft(source, dest, vsapi_ip_number::TCP, 1000, 0),
-        ); // wildcard dest port
+        hash.insert(1, make_ft(source, dest, vsapi_ip_number::TCP, 1000, 0)); // wildcard dest port
         for i in 0..n {
             let group = i / group_size;
             let pos_in_group = i % group_size;
