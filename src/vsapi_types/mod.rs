@@ -27,8 +27,8 @@ pub use topo::{Link, LinkRole};
 pub use util::ip::ip_addr_from_vec;
 pub use util::time::visa_expiration_timestamp_to_system_time;
 pub use visa::{
-    Constraints, DockPep, EndpointT, HasFiveTuple, IcmpPep, KeyFormat, KeySet, TcpUdpPep, Visa,
-    VisaOp,
+    Constraints, DockPep, DockPepType, EndpointT, FwdPep, FwdPepStyle, HasFiveTuple, IcmpPep,
+    KeyFormat, KeySet, TcpUdpPep, Visa, VisaOp, VisaType,
 };
 pub use vsnet::SockAddr;
 

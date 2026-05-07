@@ -1,4 +1,14 @@
 /// Benchmarks for FiveTupleLookupTable
+#[cfg(all(
+    feature = "vsapi",
+    any(
+        feature = "rcu-aarc",
+        feature = "rcu-arc-swap",
+        feature = "rcu-crossbeam-epoch",
+        feature = "rcu-mutex-arc",
+        feature = "rcu-rwlock"
+    )
+))]
 use criterion::{criterion_group, criterion_main};
 
 #[cfg(all(
@@ -88,7 +98,7 @@ mod bench_impl {
     /// Ports are arranged in groups of group_size with a 1-port gap between groups
     ///
     /// Returns the FiveTupleLookupTable, and a Vector of VsapiFiveTuples that can be used to
-    /// lookup Visas within the table    
+    /// lookup Visas within the table
     fn table_multival_dest_ports(
         n: usize,
         group_size: usize,
@@ -127,7 +137,7 @@ mod bench_impl {
     /// Build a table with n visas, each with a unique dest address and both ports wildcarded
     ///
     /// Returns the FiveTupleLookupTable, and a Vector of VsapiFiveTuples that can be used to
-    /// lookup Visas within the table    
+    /// lookup Visas within the table
     fn table_wildcard_ports(n: usize) -> (FiveTupleLookupTable, Vec<VsapiFiveTuple>) {
         let source = addr_bytes_from_usize(0xFFFF_FFFF);
         let mut hash: HashMap<VisaId, Visa> = HashMap::with_capacity(n);
