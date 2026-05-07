@@ -4,9 +4,7 @@ use crate::packet_info::L3Type;
 use crate::vsapi::v1;
 use crate::vsapi_types::VsapiTypeError;
 
-// Used to combine two src port levels, two dst port levels, or two proto levels
 pub trait HasFiveTuple {
-    /// Returns an option becuase [VisaType::ForwardOnly] visas do not have access to the five tuple.
     fn get_five_tuple(&self) -> VsapiFiveTuple;
 }
 

@@ -134,7 +134,7 @@ impl Visa {
         expires: SystemTime,
         source_addr: IpAddr,
         dest_addr: IpAddr,
-        dock_pep_t: DockPepType,
+        pep: DockPepType,
         session_key: KeySet,
         cons: Option<Constraints>,
     ) -> Self {
@@ -142,7 +142,7 @@ impl Visa {
             source_addr,
             dest_addr,
             session_key,
-            pep: dock_pep_t,
+            pep,
         };
         Self {
             issuer_id,
@@ -169,6 +169,13 @@ impl Visa {
             Ok(dur) => dur.as_millis() as u64,
             Err(_) => 0,
         }
+    }
+
+    /// Helper to get the five tuple if it exists.
+    pub fn five_tuple(&self) -> Option<VsapiFiveTuple> {
+        self.dock_pep
+            .as_ref()
+            .map(|dock_pep| dock_pep.get_five_tuple())
     }
 }
 
