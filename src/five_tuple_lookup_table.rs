@@ -369,9 +369,9 @@ mod tests {
     ) -> Visa {
         let pep = vsapi_types::TcpUdpPep::new(src_port, dst_port, vsapi_types::EndpointT::Any);
         let dock_pep = if l4proto == vsapi_ip_number::TCP {
-            vsapi_types::DockPep::TCP(pep)
+            vsapi_types::DockPepType::TCP(pep)
         } else {
-            vsapi_types::DockPep::UDP(pep)
+            vsapi_types::DockPepType::UDP(pep)
         };
         vsapi_types::Visa::new(
             0,

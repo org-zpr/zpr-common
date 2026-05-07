@@ -82,10 +82,10 @@ impl WriteTo<v1::fwd_pep::Builder<'_>> for FwdPep {
 
 impl WriteTo<v1::dock_pep::Builder<'_>> for DockPep {
     fn write_to(&self, bldr: &mut v1::dock_pep::Builder<'_>) {
-        let mut ip_bldr = bldr.reborrow().init_dest_addr();
-        self.dest_addr.write_to(&mut ip_bldr);
         let mut ip_bldr = bldr.reborrow().init_source_addr();
         self.source_addr.write_to(&mut ip_bldr);
+        let mut ip_bldr = bldr.reborrow().init_dest_addr();
+        self.dest_addr.write_to(&mut ip_bldr);
         let mut keyset_bldr = bldr.reborrow().init_session_key();
         self.session_key.write_to(&mut keyset_bldr);
 

@@ -18,6 +18,7 @@ pub struct Visa {
     pub expires: SystemTime,
     pub visa_type: VisaType,
     pub dock_pep: DockPep,
+    /// Required for type `ForwardOnly`, optional for type `Full`
     pub fwd_pep: Option<FwdPep>,
     pub cons: Option<Constraints>,
 }
@@ -130,7 +131,7 @@ impl KeySet {
 
 impl Visa {
     /// Create a new "full" visa with no forwarding information.
-    pub fn new_no_fwd(
+    pub fn new(
         issuer_id: u64,
         config: i64,
         expires: SystemTime,
