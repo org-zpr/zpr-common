@@ -355,33 +355,22 @@ mod tests {
     use super::*;
 
     use crate::packet_info::L3Type;
-    use crate::vsapi_types;
-    use crate::vsapi_types::Visa;
     use crate::vsapi_types::vsapi_ip_number;
-    use std::time::SystemTime;
 
-    fn make_visa(
+    fn make_ft(
         src_addr: [u8; 16],
         dst_addr: [u8; 16],
         l4proto: VsapiIpProtocol,
         src_port: u16,
         dst_port: u16,
-    ) -> Visa {
-        let pep = vsapi_types::TcpUdpPep::new(src_port, dst_port, vsapi_types::EndpointT::Any);
-        let dock_pep = if l4proto == vsapi_ip_number::TCP {
-            vsapi_types::DockPepType::TCP(pep)
-        } else {
-            vsapi_types::DockPepType::UDP(pep)
-        };
-        vsapi_types::Visa::new(
-            0,
-            0,
-            SystemTime::UNIX_EPOCH,
+    ) -> VsapiFiveTuple {
+        VsapiFiveTuple::new(
+            L3Type::Ipv6,
             IpAddr::from(src_addr),
             IpAddr::from(dst_addr),
-            dock_pep,
-            vsapi_types::KeySet::default(),
-            None,
+            l4proto,
+            src_port,
+            dst_port,
         )
     }
 
@@ -394,9 +383,9 @@ mod tests {
         let src_port = 10;
         let dst_port = 11;
 
-        let v = make_visa(src_addr, dst_addr, l4proto, src_port, dst_port);
+        let v = make_ft(src_addr, dst_addr, l4proto, src_port, dst_port);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(12, v);
 
         let table = FiveTupleLookupTable::new();
@@ -455,10 +444,10 @@ mod tests {
         let src_port = 10;
         let dst_port = 11;
 
-        let v1 = make_visa(src_addr, dst_addr, l4proto1, src_port, dst_port);
-        let v2 = make_visa(src_addr, dst_addr, l4proto2, src_port, dst_port);
+        let v1 = make_ft(src_addr, dst_addr, l4proto1, src_port, dst_port);
+        let v2 = make_ft(src_addr, dst_addr, l4proto2, src_port, dst_port);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(12, v1);
         hash.insert(13, v2);
 
@@ -535,10 +524,10 @@ mod tests {
         let src_port2 = 14;
         let dst_port = 11;
 
-        let v1 = make_visa(src_addr, dst_addr, l4proto, src_port1, dst_port);
-        let v2 = make_visa(src_addr, dst_addr, l4proto, src_port2, dst_port);
+        let v1 = make_ft(src_addr, dst_addr, l4proto, src_port1, dst_port);
+        let v2 = make_ft(src_addr, dst_addr, l4proto, src_port2, dst_port);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(12, v1);
         hash.insert(13, v2);
 
@@ -651,10 +640,10 @@ mod tests {
         let dst_port1 = 11;
         let dst_port2 = 14;
 
-        let v1 = make_visa(src_addr, dst_addr, l4proto, src_port, dst_port1);
-        let v2 = make_visa(src_addr, dst_addr, l4proto, src_port, dst_port2);
+        let v1 = make_ft(src_addr, dst_addr, l4proto, src_port, dst_port1);
+        let v2 = make_ft(src_addr, dst_addr, l4proto, src_port, dst_port2);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(12, v1);
         hash.insert(13, v2);
 
@@ -736,10 +725,10 @@ mod tests {
         let src_port = 10;
         let dst_port = 11;
 
-        let v1 = make_visa(src_addr1, dst_addr, l4proto, src_port, dst_port);
-        let v2 = make_visa(src_addr2, dst_addr, l4proto, src_port, dst_port);
+        let v1 = make_ft(src_addr1, dst_addr, l4proto, src_port, dst_port);
+        let v2 = make_ft(src_addr2, dst_addr, l4proto, src_port, dst_port);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(12, v1);
         hash.insert(13, v2);
 
@@ -839,9 +828,9 @@ mod tests {
         let src_port = 10;
         let dst_port = 11;
 
-        let v1 = make_visa(src_addr, dst_addr1, l4proto, src_port, dst_port);
-        let v2 = make_visa(src_addr, dst_addr2, l4proto, src_port, dst_port);
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let v1 = make_ft(src_addr, dst_addr1, l4proto, src_port, dst_port);
+        let v2 = make_ft(src_addr, dst_addr2, l4proto, src_port, dst_port);
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
 
         hash.insert(12, v1);
         hash.insert(13, v2);
@@ -940,7 +929,7 @@ mod tests {
         let src_port = 10;
         let dst_port = 11;
 
-        let v = make_visa(src_addr, dst_addr, l4proto, src_port, dst_port);
+        let v = make_ft(src_addr, dst_addr, l4proto, src_port, dst_port);
 
         let ft = VsapiFiveTuple::new(
             L3Type::Ipv6,
@@ -951,7 +940,7 @@ mod tests {
             dst_port as u16,
         );
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(12, v);
 
         let table = FiveTupleLookupTable::new();
@@ -984,13 +973,13 @@ mod tests {
         let src_addr_diff = [3u8; 16];
         let dst_addr_diff = [4u8; 16];
 
-        let v_diff_proto = make_visa(src_addr, dst_addr, l4proto_diff, src_port, dst_port);
-        let v_diff_src_port = make_visa(src_addr, dst_addr, l4proto, src_port_diff, dst_port);
-        let v_diff_dst_port = make_visa(src_addr, dst_addr, l4proto, src_port, dst_port_diff);
-        let v_diff_src_addr = make_visa(src_addr_diff, dst_addr, l4proto, src_port, dst_port);
-        let v_diff_dst_addr = make_visa(src_addr, dst_addr_diff, l4proto, src_port, dst_port);
+        let v_diff_proto = make_ft(src_addr, dst_addr, l4proto_diff, src_port, dst_port);
+        let v_diff_src_port = make_ft(src_addr, dst_addr, l4proto, src_port_diff, dst_port);
+        let v_diff_dst_port = make_ft(src_addr, dst_addr, l4proto, src_port, dst_port_diff);
+        let v_diff_src_addr = make_ft(src_addr_diff, dst_addr, l4proto, src_port, dst_port);
+        let v_diff_dst_addr = make_ft(src_addr, dst_addr_diff, l4proto, src_port, dst_port);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(15, v_diff_proto);
         hash.insert(16, v_diff_src_port);
         hash.insert(17, v_diff_dst_port);
@@ -1012,9 +1001,9 @@ mod tests {
         let src_port = 10;
         let dst_port = 11;
 
-        let v = make_visa(src_addr, dst_addr, l4proto, src_port, dst_port);
+        let v = make_ft(src_addr, dst_addr, l4proto, src_port, dst_port);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(15, v);
         let table = FiveTupleLookupTable::new();
         table.build_table_from_hash(&hash);
@@ -1096,13 +1085,13 @@ mod tests {
         let src_addr_diff = [3u8; 16];
         let dst_addr_diff = [4u8; 16];
 
-        let v_diff_proto = make_visa(src_addr, dst_addr, l4proto_diff, src_port, dst_port);
-        let v_diff_src_port = make_visa(src_addr, dst_addr, l4proto, src_port_diff, dst_port);
-        let v_diff_dst_port = make_visa(src_addr, dst_addr, l4proto, src_port, dst_port_diff);
-        let v_diff_src_addr = make_visa(src_addr_diff, dst_addr, l4proto, src_port, dst_port);
-        let v_diff_dst_addr = make_visa(src_addr, dst_addr_diff, l4proto, src_port, dst_port);
+        let v_diff_proto = make_ft(src_addr, dst_addr, l4proto_diff, src_port, dst_port);
+        let v_diff_src_port = make_ft(src_addr, dst_addr, l4proto, src_port_diff, dst_port);
+        let v_diff_dst_port = make_ft(src_addr, dst_addr, l4proto, src_port, dst_port_diff);
+        let v_diff_src_addr = make_ft(src_addr_diff, dst_addr, l4proto, src_port, dst_port);
+        let v_diff_dst_addr = make_ft(src_addr, dst_addr_diff, l4proto, src_port, dst_port);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(15, v_diff_proto);
         hash.insert(16, v_diff_src_port);
         hash.insert(17, v_diff_dst_port);
@@ -1170,9 +1159,9 @@ mod tests {
         let src_port = 0;
         let dst_port = 11;
 
-        let v = make_visa(src_addr, dst_addr, l4proto, src_port, dst_port);
+        let v = make_ft(src_addr, dst_addr, l4proto, src_port, dst_port);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(12, v);
 
         let table = FiveTupleLookupTable::new();
@@ -1259,9 +1248,9 @@ mod tests {
         let src_port = 10;
         let dst_port = 0;
 
-        let v = make_visa(src_addr, dst_addr, l4proto, src_port, dst_port);
+        let v = make_ft(src_addr, dst_addr, l4proto, src_port, dst_port);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(12, v);
 
         let table = FiveTupleLookupTable::new();
@@ -1351,10 +1340,10 @@ mod tests {
         let src_port_wild = 0;
         let dst_port = 11;
 
-        let v1 = make_visa(src_addr, dst_addr, l4proto1, src_port_specified, dst_port);
-        let v2 = make_visa(src_addr, dst_addr, l4proto2, src_port_wild, dst_port);
+        let v1 = make_ft(src_addr, dst_addr, l4proto1, src_port_specified, dst_port);
+        let v2 = make_ft(src_addr, dst_addr, l4proto2, src_port_wild, dst_port);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(12, v1);
         hash.insert(13, v2);
 
@@ -1428,10 +1417,10 @@ mod tests {
         let src_port_wild = 0;
         let dst_port = 11;
 
-        let v1 = make_visa(src_addr, dst_addr, l4proto1, src_port_specified, dst_port);
-        let v2 = make_visa(src_addr, dst_addr, l4proto2, src_port_wild, dst_port);
+        let v1 = make_ft(src_addr, dst_addr, l4proto1, src_port_specified, dst_port);
+        let v2 = make_ft(src_addr, dst_addr, l4proto2, src_port_wild, dst_port);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(13, v2);
         hash.insert(12, v1);
 
@@ -1518,13 +1507,13 @@ mod tests {
         let src_addr_diff = [3u8; 16];
         let dst_addr_diff = [4u8; 16];
 
-        let v_diff_proto = make_visa(src_addr, dst_addr, l4proto_diff, src_port, dst_port);
-        let v_diff_src_port = make_visa(src_addr, dst_addr, l4proto, src_port_diff, dst_port);
-        let v_diff_dst_port = make_visa(src_addr, dst_addr, l4proto, src_port, dst_port_diff);
-        let v_diff_src_addr = make_visa(src_addr_diff, dst_addr, l4proto, src_port, dst_port);
-        let v_diff_dst_addr = make_visa(src_addr, dst_addr_diff, l4proto, src_port, dst_port);
+        let v_diff_proto = make_ft(src_addr, dst_addr, l4proto_diff, src_port, dst_port);
+        let v_diff_src_port = make_ft(src_addr, dst_addr, l4proto, src_port_diff, dst_port);
+        let v_diff_dst_port = make_ft(src_addr, dst_addr, l4proto, src_port, dst_port_diff);
+        let v_diff_src_addr = make_ft(src_addr_diff, dst_addr, l4proto, src_port, dst_port);
+        let v_diff_dst_addr = make_ft(src_addr, dst_addr_diff, l4proto, src_port, dst_port);
 
-        let mut hash: HashMap<VisaId, Visa> = HashMap::new();
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(15, v_diff_proto);
         hash.insert(16, v_diff_src_port);
 

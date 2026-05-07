@@ -54,8 +54,10 @@ impl WriteTo<v1::visa::Builder<'_>> for Visa {
             VisaType::ForwardOnly => bldr.set_visa_type(v1::VisaType::ForwardOnly),
         }
 
-        let mut dock_pep_bldr = bldr.reborrow().init_dock_pep();
-        self.dock_pep.write_to(&mut dock_pep_bldr);
+        if let Some(dock_pep) = &self.dock_pep {
+            let mut dock_pep_bldr = bldr.reborrow().init_dock_pep();
+            dock_pep.write_to(&mut dock_pep_bldr);
+        }
 
         if let Some(fpep) = &self.fwd_pep {
             let mut fwd_pep_bldr = bldr.reborrow().init_fwd_pep();

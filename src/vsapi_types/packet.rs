@@ -4,6 +4,12 @@ use crate::packet_info::L3Type;
 use crate::vsapi::v1;
 use crate::vsapi_types::VsapiTypeError;
 
+// Used to combine two src port levels, two dst port levels, or two proto levels
+pub trait HasFiveTuple {
+    /// Returns an option becuase [VisaType::ForwardOnly] visas do not have access to the five tuple.
+    fn get_five_tuple(&self) -> VsapiFiveTuple;
+}
+
 /// A description of a packet between a sender and reciever.
 #[derive(Debug)]
 pub struct PacketDesc {
@@ -51,6 +57,12 @@ pub mod vsapi_ip_number {
     pub const AH: VsapiIpProtocol = 51;
     pub const IPV6_ICMP: VsapiIpProtocol = 58;
     pub const IPV6_OPTS: VsapiIpProtocol = 60;
+}
+
+impl HasFiveTuple for VsapiFiveTuple {
+    fn get_five_tuple(&self) -> VsapiFiveTuple {
+        *self
+    }
 }
 
 impl VsapiFiveTuple {

@@ -26,36 +26,25 @@ mod bench_impl {
     use rand::RngExt;
     use std::collections::HashMap;
     use std::net::IpAddr;
-    use std::time::SystemTime;
     use zpr::five_tuple_lookup_table::FiveTupleLookupTable;
     use zpr::packet_info::{L3Type, VisaId};
-    use zpr::vsapi_types::{
-        DockPep, EndpointT, KeySet, TcpUdpPep, Visa, VsapiFiveTuple, vsapi_ip_number,
-    };
+    use zpr::vsapi_types::{VsapiFiveTuple, vsapi_ip_number};
 
-    fn make_visa(
+    fn make_ft(
         source: [u8; 16],
         dest: [u8; 16],
         proto: u8,
         source_port: u16,
         dest_port: u16,
-    ) -> Result<Visa, &'static str> {
-        let pep = TcpUdpPep::new(source_port, dest_port, EndpointT::Any);
-        let dock_pep = match proto {
-            vsapi_ip_number::TCP => DockPep::TCP(pep),
-            vsapi_ip_number::UDP => DockPep::UDP(pep),
-            _ => return Err("unsupported protocol"),
-        };
-        Ok(Visa::new(
-            0,
-            0,
-            SystemTime::UNIX_EPOCH,
+    ) -> VsapiFiveTuple {
+        VsapiFiveTuple::new(
+            L3Type::Ipv6,
             IpAddr::from(source),
             IpAddr::from(dest),
-            dock_pep,
-            KeySet::default(),
-            None,
-        ))
+            proto,
+            source_port,
+            dest_port,
+        )
     }
 
     fn addr_bytes_from_usize(i: usize) -> [u8; 16] {
@@ -72,13 +61,13 @@ mod bench_impl {
     /// lookup Visas within the table
     fn table_unique_dest_addrs(n: usize) -> (FiveTupleLookupTable, Vec<VsapiFiveTuple>) {
         let source = addr_bytes_from_usize(0xFFFF_FFFF);
-        let mut hash: HashMap<VisaId, Visa> = HashMap::with_capacity(n);
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::with_capacity(n);
         let mut fts = Vec::with_capacity(n);
         for i in 0..n {
             let dest = addr_bytes_from_usize(i);
             hash.insert(
                 i as VisaId + 1,
-                make_visa(source, dest, vsapi_ip_number::TCP, 1000, 80).unwrap(),
+                make_ft(source, dest, vsapi_ip_number::TCP, 1000, 80),
             );
             fts.push(VsapiFiveTuple::new(
                 L3Type::Ipv6,
@@ -110,7 +99,7 @@ mod bench_impl {
         );
         let source = addr_bytes_from_usize(0xFFFF_FFFF);
         let dest = addr_bytes_from_usize(1);
-        let mut hash: HashMap<VisaId, Visa> = HashMap::with_capacity(n);
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::with_capacity(n);
         let mut fts = Vec::with_capacity(n);
         for i in 0..n {
             let group = i / group_size;
@@ -118,7 +107,7 @@ mod bench_impl {
             let dest_port = (group * (group_size + 1) + pos_in_group + 1) as u16;
             hash.insert(
                 i as VisaId + 1,
-                make_visa(source, dest, vsapi_ip_number::TCP, 1000, dest_port).unwrap(),
+                make_ft(source, dest, vsapi_ip_number::TCP, 1000, dest_port),
             );
             fts.push(VsapiFiveTuple::new(
                 L3Type::Ipv6,
@@ -140,13 +129,13 @@ mod bench_impl {
     /// lookup Visas within the table
     fn table_wildcard_ports(n: usize) -> (FiveTupleLookupTable, Vec<VsapiFiveTuple>) {
         let source = addr_bytes_from_usize(0xFFFF_FFFF);
-        let mut hash: HashMap<VisaId, Visa> = HashMap::with_capacity(n);
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::with_capacity(n);
         let mut fts = Vec::with_capacity(n);
         for i in 0..n {
             let dest = addr_bytes_from_usize(i);
             hash.insert(
                 i as VisaId + 1,
-                make_visa(source, dest, vsapi_ip_number::TCP, 0, 0).unwrap(),
+                make_ft(source, dest, vsapi_ip_number::TCP, 0, 0),
             );
             fts.push(VsapiFiveTuple::new(
                 L3Type::Ipv6,
@@ -177,11 +166,11 @@ mod bench_impl {
         assert!(n_groups * (group_size + 1) <= 65535, "port space exhausted");
         let source = addr_bytes_from_usize(0xFFFF_FFFF);
         let dest = addr_bytes_from_usize(1);
-        let mut hash: HashMap<VisaId, Visa> = HashMap::with_capacity(n + 1);
+        let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::with_capacity(n + 1);
         let mut fts = Vec::with_capacity(n);
         hash.insert(
             1,
-            make_visa(source, dest, vsapi_ip_number::TCP, 1000, 0).unwrap(),
+            make_ft(source, dest, vsapi_ip_number::TCP, 1000, 0),
         ); // wildcard dest port
         for i in 0..n {
             let group = i / group_size;
@@ -189,7 +178,7 @@ mod bench_impl {
             let port = (group * (group_size + 1) + pos_in_group + 1) as u16;
             hash.insert(
                 i as VisaId + 2,
-                make_visa(source, dest, vsapi_ip_number::TCP, 1000, port).unwrap(),
+                make_ft(source, dest, vsapi_ip_number::TCP, 1000, port),
             );
             fts.push(VsapiFiveTuple::new(
                 L3Type::Ipv6,
@@ -308,18 +297,17 @@ mod bench_impl {
         let mut group = c.benchmark_group("build_table_from_hash");
         for &n in &[10, 100, 1000] {
             let source = addr_bytes_from_usize(0xFFFF_FFFF);
-            let mut hash: HashMap<VisaId, Visa> = HashMap::with_capacity(n);
+            let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::with_capacity(n);
             for i in 0..n {
                 hash.insert(
                     i as VisaId + 1,
-                    make_visa(
+                    make_ft(
                         source,
                         addr_bytes_from_usize(i),
                         vsapi_ip_number::TCP,
                         1000,
                         80,
-                    )
-                    .unwrap(),
+                    ),
                 );
             }
             group.bench_with_input(BenchmarkId::from_parameter(n), &hash, |b, h| {
@@ -338,28 +326,26 @@ mod bench_impl {
         let mut group = c.benchmark_group("insert_visa");
         for &base_size in &[1, 10, 100] {
             let source = addr_bytes_from_usize(0xFFFF_FFFF);
-            let mut hash: HashMap<VisaId, Visa> = HashMap::with_capacity(base_size);
+            let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::with_capacity(base_size);
             for i in 0..base_size {
                 hash.insert(
                     i as VisaId + 1,
-                    make_visa(
+                    make_ft(
                         source,
                         addr_bytes_from_usize(i),
                         vsapi_ip_number::TCP,
                         1000,
                         80,
-                    )
-                    .unwrap(),
+                    ),
                 );
             }
-            let new_visa = make_visa(
+            let new_visa = make_ft(
                 source,
                 addr_bytes_from_usize(0xDEAD_BEEF),
                 vsapi_ip_number::TCP,
                 5000,
                 443,
-            )
-            .unwrap();
+            );
 
             group.bench_function(BenchmarkId::from_parameter(base_size), |b| {
                 b.iter_batched(

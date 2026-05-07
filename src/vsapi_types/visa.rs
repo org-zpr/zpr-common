@@ -6,6 +6,7 @@ use crate::packet_info::L3Type;
 use crate::vsapi::v1;
 use crate::vsapi_types::VsapiFiveTuple;
 use crate::vsapi_types::VsapiTypeError;
+use crate::vsapi_types::packet::HasFiveTuple;
 use crate::vsapi_types::util::time::visa_expiration_timestamp_to_system_time;
 use crate::vsapi_types::vsapi_ip_number;
 
@@ -17,21 +18,17 @@ pub struct Visa {
     pub config: i64,
     pub expires: SystemTime,
     pub visa_type: VisaType,
-    pub dock_pep: DockPep,
+    pub dock_pep: Option<DockPep>,
     /// Required for type `ForwardOnly`, optional for type `Full`
     pub fwd_pep: Option<FwdPep>,
     pub cons: Option<Constraints>,
 }
 
-// Used to combine two src port levels, two dst port levels, or two proto levels
-pub trait HasFiveTuple {
-    fn get_five_tuple(&self) -> VsapiFiveTuple;
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VisaType {
+    /// An ingress or egress visa. If ingress, might have a [FwdPep]. Will have a [DockPep].
     Full,
-    /// For intermediary nodes on a path
+    /// For intermediary nodes on a path. Will have a [FwdPep], will not have a [DockPep].
     ForwardOnly,
 }
 
@@ -152,7 +149,7 @@ impl Visa {
             config,
             expires,
             visa_type: VisaType::Full,
-            dock_pep,
+            dock_pep: Some(dock_pep),
             fwd_pep: None,
             cons,
         }
@@ -175,11 +172,11 @@ impl Visa {
     }
 }
 
-impl HasFiveTuple for Visa {
+impl HasFiveTuple for DockPep {
     /// Get the FiveTuple from a Visa
     fn get_five_tuple(&self) -> VsapiFiveTuple {
-        let source_addr = self.dock_pep.source_addr;
-        let dest_addr = self.dock_pep.dest_addr;
+        let source_addr = self.source_addr;
+        let dest_addr = self.dest_addr;
 
         let l3_protocol = if source_addr.is_ipv4() {
             L3Type::Ipv4
@@ -187,7 +184,7 @@ impl HasFiveTuple for Visa {
             L3Type::Ipv6
         };
 
-        let (l4_protocol, source_port, dest_port) = match &self.dock_pep.pep {
+        let (l4_protocol, source_port, dest_port) = match &self.pep {
             DockPepType::ICMP(icmp_pep) => {
                 if l3_protocol == L3Type::Ipv6 {
                     (
@@ -259,7 +256,11 @@ impl TryFrom<v1::visa::Reader<'_>> for Visa {
             v1::VisaType::ForwardOnly => VisaType::ForwardOnly,
         };
 
-        let dock_pep = DockPep::try_from(reader.get_dock_pep()?)?;
+        let dock_pep = if reader.has_dock_pep() {
+            Some(DockPep::try_from(reader.get_dock_pep()?)?)
+        } else {
+            None
+        };
 
         let fwd_pep = if reader.has_fwd_pep() {
             Some(FwdPep::try_from(reader.get_fwd_pep()?)?)
