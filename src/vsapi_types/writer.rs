@@ -3,8 +3,8 @@ use std::net::IpAddr;
 use crate::vsapi::v1;
 use crate::vsapi_types::{
     ApiResponseError, AuthBlob, ChallengeAlg, Claim, CommFlag, ConnectRequest, Connection, DockPep,
-    EndpointT, IcmpPep, KeySet, Link, LinkRole, PacketDesc, Param, ParamValue, ServiceDescriptor,
-    SockAddr, TcpUdpPep, Visa, VisaOp,
+    DockPepType, EndpointT, FwdPep, FwdPepStyle, IcmpPep, KeySet, Link, LinkRole, PacketDesc,
+    Param, ParamValue, ServiceDescriptor, SockAddr, TcpUdpPep, Visa, VisaOp, VisaType,
 };
 use crate::write_to::WriteTo;
 
@@ -48,32 +48,63 @@ impl WriteTo<v1::visa::Builder<'_>> for Visa {
     fn write_to(&self, bldr: &mut v1::visa::Builder<'_>) {
         bldr.set_issuer_id(self.issuer_id);
         bldr.set_expiration(self.get_expiration_timestamp());
-        let mut ip_bldr = bldr.reborrow().init_dest_addr();
-        self.dest_addr.write_to(&mut ip_bldr);
-        let mut ip_bldr = bldr.reborrow().init_source_addr();
-        self.source_addr.write_to(&mut ip_bldr);
-        match &self.dock_pep {
-            DockPep::TCP(pep) => {
-                let pep_bldr = bldr.reborrow().init_dock_pep();
-                let mut tcp_bldr = pep_bldr.init_tcp();
-                pep.write_to(&mut tcp_bldr);
-            }
-            DockPep::UDP(pep) => {
-                let pep_bldr = bldr.reborrow().init_dock_pep();
-                let mut udp_bldr = pep_bldr.init_udp();
-                pep.write_to(&mut udp_bldr);
-            }
-            DockPep::ICMP(pep) => {
-                let pep_bldr = bldr.reborrow().init_dock_pep();
-                let mut icmp_bldr = pep_bldr.init_icmp();
-                pep.write_to(&mut icmp_bldr);
-            }
+
+        match self.visa_type {
+            VisaType::Full => bldr.set_visa_type(v1::VisaType::Full),
+            VisaType::ForwardOnly => bldr.set_visa_type(v1::VisaType::ForwardOnly),
         }
+
+        if let Some(dock_pep) = &self.dock_pep {
+            let mut dock_pep_bldr = bldr.reborrow().init_dock_pep();
+            dock_pep.write_to(&mut dock_pep_bldr);
+        }
+
+        if let Some(fpep) = &self.fwd_pep {
+            let mut fwd_pep_bldr = bldr.reborrow().init_fwd_pep();
+            fpep.write_to(&mut fwd_pep_bldr);
+        }
+
         if self.cons.is_some() {
             unimplemented!("visa constraints serialization not implemented yet");
         }
+    }
+}
+
+impl WriteTo<v1::fwd_pep::Builder<'_>> for FwdPep {
+    fn write_to(&self, bldr: &mut v1::fwd_pep::Builder<'_>) {
+        let mut ip_bldr = bldr.reborrow().init_next_hop();
+        self.next_hop.write_to(&mut ip_bldr);
+
+        match self.style {
+            FwdPepStyle::Symmetric => bldr.set_symmetric(true),
+            FwdPepStyle::OneWay => bldr.set_symmetric(false),
+        }
+    }
+}
+
+impl WriteTo<v1::dock_pep::Builder<'_>> for DockPep {
+    fn write_to(&self, bldr: &mut v1::dock_pep::Builder<'_>) {
+        let mut ip_bldr = bldr.reborrow().init_source_addr();
+        self.source_addr.write_to(&mut ip_bldr);
+        let mut ip_bldr = bldr.reborrow().init_dest_addr();
+        self.dest_addr.write_to(&mut ip_bldr);
         let mut keyset_bldr = bldr.reborrow().init_session_key();
         self.session_key.write_to(&mut keyset_bldr);
+
+        match &self.pep {
+            DockPepType::TCP(pep) => {
+                let mut tcp_bldr = bldr.reborrow().init_tcp();
+                pep.write_to(&mut tcp_bldr);
+            }
+            DockPepType::UDP(pep) => {
+                let mut udp_bldr = bldr.reborrow().init_udp();
+                pep.write_to(&mut udp_bldr);
+            }
+            DockPepType::ICMP(pep) => {
+                let mut icmp_bldr = bldr.reborrow().init_icmp();
+                pep.write_to(&mut icmp_bldr);
+            }
+        }
     }
 }
 

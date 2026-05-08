@@ -6,6 +6,7 @@ use crate::packet_info::L3Type;
 use crate::vsapi::v1;
 use crate::vsapi_types::VsapiFiveTuple;
 use crate::vsapi_types::VsapiTypeError;
+use crate::vsapi_types::packet::HasFiveTuple;
 use crate::vsapi_types::util::time::visa_expiration_timestamp_to_system_time;
 use crate::vsapi_types::vsapi_ip_number;
 
@@ -16,20 +17,47 @@ pub struct Visa {
     pub issuer_id: u64,
     pub config: i64,
     pub expires: SystemTime,
-    pub source_addr: IpAddr,
-    pub dest_addr: IpAddr,
-    pub dock_pep: DockPep,
-    pub session_key: KeySet,
+    pub visa_type: VisaType,
+    /// Required for type [VisaType::Full], will not be set for type [VisaType::ForwardOnly]
+    pub dock_pep: Option<DockPep>,
+    /// Required for type [VisaType::ForwardOnly], optional for type [VisaType::Full]
+    pub fwd_pep: Option<FwdPep>,
     pub cons: Option<Constraints>,
 }
 
-// Used to combine two src port levels, two dst port levels, or two proto levels
-pub trait HasFiveTuple {
-    fn get_five_tuple(&self) -> VsapiFiveTuple;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum VisaType {
+    /// An ingress or egress visa. If ingress, might have a [FwdPep]. Will have a [DockPep].
+    Full,
+    /// For intermediary nodes on a path. Will have a [FwdPep], will not have a [DockPep].
+    ForwardOnly,
 }
 
 #[derive(Debug, Clone)]
-pub enum DockPep {
+pub struct FwdPep {
+    /// Node ZPR address
+    pub next_hop: IpAddr,
+    pub style: FwdPepStyle,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FwdPepStyle {
+    OneWay,
+
+    /// Visa route applies in both directions
+    Symmetric,
+}
+
+#[derive(Debug, Clone)]
+pub struct DockPep {
+    pub source_addr: IpAddr,
+    pub dest_addr: IpAddr,
+    pub session_key: KeySet,
+    pub pep: DockPepType,
+}
+
+#[derive(Debug, Clone)]
+pub enum DockPepType {
     TCP(TcpUdpPep),
     UDP(TcpUdpPep),
     ICMP(IcmpPep),
@@ -100,25 +128,30 @@ impl KeySet {
 }
 
 impl Visa {
-    /// Create a new Visa, given values
+    /// Create a new "full" visa with no forwarding information.
     pub fn new(
         issuer_id: u64,
         config: i64,
         expires: SystemTime,
         source_addr: IpAddr,
         dest_addr: IpAddr,
-        dock_pep: DockPep,
+        pep: DockPepType,
         session_key: KeySet,
         cons: Option<Constraints>,
     ) -> Self {
+        let dock_pep = DockPep {
+            source_addr,
+            dest_addr,
+            session_key,
+            pep,
+        };
         Self {
             issuer_id,
             config,
             expires,
-            source_addr,
-            dest_addr,
-            dock_pep,
-            session_key,
+            visa_type: VisaType::Full,
+            dock_pep: Some(dock_pep),
+            fwd_pep: None,
             cons,
         }
     }
@@ -138,9 +171,16 @@ impl Visa {
             Err(_) => 0,
         }
     }
+
+    /// Helper to get the five tuple if it exists.
+    pub fn five_tuple(&self) -> Option<VsapiFiveTuple> {
+        self.dock_pep
+            .as_ref()
+            .map(|dock_pep| dock_pep.get_five_tuple())
+    }
 }
 
-impl HasFiveTuple for Visa {
+impl HasFiveTuple for DockPep {
     /// Get the FiveTuple from a Visa
     fn get_five_tuple(&self) -> VsapiFiveTuple {
         let source_addr = self.source_addr;
@@ -152,8 +192,8 @@ impl HasFiveTuple for Visa {
             L3Type::Ipv6
         };
 
-        let (l4_protocol, source_port, dest_port) = match &self.dock_pep {
-            DockPep::ICMP(icmp_pep) => {
+        let (l4_protocol, source_port, dest_port) = match &self.pep {
+            DockPepType::ICMP(icmp_pep) => {
                 if l3_protocol == L3Type::Ipv6 {
                     (
                         vsapi_ip_number::IPV6_ICMP,
@@ -168,12 +208,12 @@ impl HasFiveTuple for Visa {
                     )
                 }
             }
-            DockPep::UDP(tcp_udp_pep) => (
+            DockPepType::UDP(tcp_udp_pep) => (
                 vsapi_ip_number::UDP,
                 tcp_udp_pep.source_port,
                 tcp_udp_pep.dest_port,
             ),
-            DockPep::TCP(tcp_udp_pep) => (
+            DockPepType::TCP(tcp_udp_pep) => (
                 vsapi_ip_number::TCP,
                 tcp_udp_pep.source_port,
                 tcp_udp_pep.dest_port,
@@ -219,11 +259,22 @@ impl TryFrom<v1::visa::Reader<'_>> for Visa {
         let config = 0i64;
         let expires = visa_expiration_timestamp_to_system_time(reader.get_expiration());
 
-        let source_addr = IpAddr::try_from(reader.get_source_addr()?)?;
-        let dest_addr = IpAddr::try_from(reader.get_dest_addr()?)?;
+        let visa_type = match reader.get_visa_type()? {
+            v1::VisaType::Full => VisaType::Full,
+            v1::VisaType::ForwardOnly => VisaType::ForwardOnly,
+        };
 
-        let dock_pep = DockPep::try_from(reader.get_dock_pep()?)?;
-        let session_key = KeySet::try_from(reader.get_session_key()?)?;
+        let dock_pep = if reader.has_dock_pep() {
+            Some(DockPep::try_from(reader.get_dock_pep()?)?)
+        } else {
+            None
+        };
+
+        let fwd_pep = if reader.has_fwd_pep() {
+            Some(FwdPep::try_from(reader.get_fwd_pep()?)?)
+        } else {
+            None
+        };
 
         // TODO: constraints not yet implemented.
         let cons = None;
@@ -232,10 +283,9 @@ impl TryFrom<v1::visa::Reader<'_>> for Visa {
             issuer_id,
             config,
             expires,
-            source_addr,
-            dest_addr,
+            visa_type,
             dock_pep,
-            session_key,
+            fwd_pep,
             cons,
         })
     }
@@ -257,12 +307,32 @@ impl TryFrom<v1::visa_op::Reader<'_>> for VisaOp {
     }
 }
 
+impl TryFrom<v1::fwd_pep::Reader<'_>> for FwdPep {
+    type Error = VsapiTypeError;
+
+    /// Returns err if required values are not set
+    fn try_from(reader: v1::fwd_pep::Reader) -> Result<Self, Self::Error> {
+        let next_hop = IpAddr::try_from(reader.get_next_hop()?)?;
+        let symmetric = reader.get_symmetric();
+        let style = if symmetric {
+            FwdPepStyle::Symmetric
+        } else {
+            FwdPepStyle::OneWay
+        };
+        Ok(FwdPep { next_hop, style })
+    }
+}
+
 impl TryFrom<v1::dock_pep::Reader<'_>> for DockPep {
     type Error = VsapiTypeError;
 
     /// Returns err if required values are not set
     fn try_from(reader: v1::dock_pep::Reader) -> Result<Self, Self::Error> {
-        match reader.which()? {
+        let source_addr = IpAddr::try_from(reader.get_source_addr()?)?;
+        let dest_addr = IpAddr::try_from(reader.get_dest_addr()?)?;
+        let session_key = KeySet::try_from(reader.get_session_key()?)?;
+
+        let pep = match reader.which()? {
             v1::dock_pep::Which::Tcp(tcp_udp_pep_result) => {
                 let tcp_udp_pep_reader = tcp_udp_pep_result?;
                 let source_port = tcp_udp_pep_reader.get_source_port();
@@ -273,7 +343,7 @@ impl TryFrom<v1::dock_pep::Reader<'_>> for DockPep {
                     v1::EndpointT::Client => EndpointT::Client,
                 };
                 let tcp_udp_pep = TcpUdpPep::new(source_port, dest_port, endpoint);
-                Ok(DockPep::TCP(tcp_udp_pep))
+                DockPepType::TCP(tcp_udp_pep)
             }
             v1::dock_pep::Which::Udp(tcp_udp_pep_result) => {
                 let tcp_udp_pep_reader = tcp_udp_pep_result?;
@@ -285,15 +355,21 @@ impl TryFrom<v1::dock_pep::Reader<'_>> for DockPep {
                     v1::EndpointT::Client => EndpointT::Client,
                 };
                 let tcp_udp_pep = TcpUdpPep::new(source_port, dest_port, endpoint);
-                Ok(DockPep::UDP(tcp_udp_pep))
+                DockPepType::UDP(tcp_udp_pep)
             }
             v1::dock_pep::Which::Icmp(icmp_pep_result) => {
                 let icmp_pep_reader = icmp_pep_result?;
                 let type_code = icmp_pep_reader.get_icmp_type_code();
                 let icmp_pep = IcmpPep::new(type_code as u8, 0);
-                Ok(DockPep::ICMP(icmp_pep))
+                DockPepType::ICMP(icmp_pep)
             }
-        }
+        };
+        Ok(DockPep {
+            source_addr,
+            dest_addr,
+            session_key,
+            pep,
+        })
     }
 }
 
