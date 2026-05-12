@@ -2,6 +2,7 @@ use std::net::IpAddr;
 
 use crate::vsapi::v1;
 use crate::vsapi_types::AuthBlob;
+use crate::vsapi_types::PacketDesc;
 use crate::vsapi_types::VsapiTypeError;
 
 /// Request to connect to VS
@@ -23,6 +24,12 @@ impl Claim {
     pub fn new(key: String, value: String) -> Self {
         Self { key, value }
     }
+}
+
+#[derive(Debug)]
+pub struct VSVisaRequest {
+    pub pdesc: PacketDesc,
+    pub previous_id: Option<u64>,
 }
 
 impl TryFrom<v1::connect_request::Reader<'_>> for ConnectRequest {
@@ -64,3 +71,12 @@ impl TryFrom<v1::claim::Reader<'_>> for Claim {
         Ok(Claim { key, value })
     }
 }
+
+// impl TryFrom<v1::visa_request::Reader<'_>> for VSVisaRequest {
+//     type Error = VsapiTypeError;
+
+//     fn try_from(reader: v1::visa_request::Reader<'_>) -> Result<Self, Self::Error> {
+
+//     }
+
+// }

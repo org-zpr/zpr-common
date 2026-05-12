@@ -22,8 +22,8 @@ pub use packet::{
     CommFlag, HasFiveTuple, PacketDesc, VsapiFiveTuple, VsapiIpProtocol, vsapi_ip_number,
 };
 pub use param::{Param, ParamValue, pname};
-pub use request::{Claim, ConnectRequest};
-pub use response::{Connection, Denied, DenyCode, DisconnectReason, VisaResponse};
+pub use request::{Claim, ConnectRequest, VSVisaRequest};
+pub use response::{Connection, Denied, DenyCode, DisconnectReason, VSVisaDecision, VisaResponse};
 pub use services::{AuthServicesList, ServiceDescriptor};
 pub use topo::{Link, LinkRole};
 pub use util::ip::ip_addr_from_vec;
