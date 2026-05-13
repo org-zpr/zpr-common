@@ -15,6 +15,23 @@ pub struct ConnectRequest {
 }
 
 #[derive(Debug)]
+pub struct VSConnectRequest {
+    /// Connect will fail if this does not match policy.
+    pub zpr_addr: IpAddr,
+    pub state: StateFlag,
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StateFlag {
+    /// Visa service / node has no state for this connection.
+    #[default]
+    NoState,
+
+    /// Visa service / node has existing state for this connection.
+    HasState,
+}
+
+#[derive(Debug)]
 pub struct Claim {
     pub key: String,
     pub value: String,
@@ -71,12 +88,3 @@ impl TryFrom<v1::claim::Reader<'_>> for Claim {
         Ok(Claim { key, value })
     }
 }
-
-// impl TryFrom<v1::visa_request::Reader<'_>> for VSVisaRequest {
-//     type Error = VsapiTypeError;
-
-//     fn try_from(reader: v1::visa_request::Reader<'_>) -> Result<Self, Self::Error> {
-
-//     }
-
-// }

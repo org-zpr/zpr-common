@@ -59,6 +59,13 @@ pub enum DenyCode {
     NoRoute,
 }
 
+#[derive(Debug)]
+pub struct VSDisconnectNotice {
+    /// None = node itself, Some = specific adapter
+    pub zpr_addr: Option<IpAddr>,
+    pub reason: DisconnectReason,
+}
+
 impl Connection {
     pub fn new(zpr_addr: IpAddr, auth_expires: SystemTime) -> Self {
         Self {
