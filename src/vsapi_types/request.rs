@@ -15,7 +15,7 @@ pub struct ConnectRequest {
 }
 
 #[derive(Debug)]
-pub struct VSConnectRequest {
+pub struct NodeConnect {
     /// Connect will fail if this does not match policy.
     pub zpr_addr: IpAddr,
     pub state: StateFlag,
@@ -44,7 +44,7 @@ impl Claim {
 }
 
 #[derive(Debug)]
-pub struct VSVisaRequest {
+pub struct VisaRequest {
     pub pdesc: PacketDesc,
     pub previous_id: Option<u64>,
 }

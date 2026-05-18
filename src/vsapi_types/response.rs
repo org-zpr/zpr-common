@@ -13,8 +13,6 @@ pub struct Connection {
     pub auth_expires: u64,
 }
 
-// / Response to a visa request - Cannot find where this is used, the VSVisaResponse and VSVisaDecision are
-// / used throughout libnode2
 #[derive(Debug)]
 pub enum VisaResponse {
     Allowed(Visa),
@@ -30,7 +28,7 @@ pub struct Denied {
 }
 
 #[derive(Debug)]
-pub enum VSVisaDecision {
+pub enum VisaDecision {
     Allowed(Visa),
     Denied(Denied),
 }
@@ -60,7 +58,7 @@ pub enum DenyCode {
 }
 
 #[derive(Debug)]
-pub struct VSDisconnectNotice {
+pub struct DisconnectNotice {
     /// None = node itself, Some = specific adapter
     pub zpr_addr: Option<IpAddr>,
     pub reason: DisconnectReason,
@@ -135,13 +133,13 @@ impl TryFrom<v1::visa_response::Reader<'_>> for VisaResponse {
     }
 }
 
-impl TryFrom<VisaResponse> for VSVisaDecision {
+impl TryFrom<VisaResponse> for VisaDecision {
     type Error = ApiResponseError;
 
     fn try_from(visa_response: VisaResponse) -> Result<Self, Self::Error> {
         match visa_response {
-            VisaResponse::Allowed(v) => Ok(VSVisaDecision::Allowed(v)),
-            VisaResponse::Denied(d) => Ok(VSVisaDecision::Denied(d)),
+            VisaResponse::Allowed(v) => Ok(VisaDecision::Allowed(v)),
+            VisaResponse::Denied(d) => Ok(VisaDecision::Denied(d)),
             VisaResponse::VsapiTypeError(e) => Err(e),
         }
     }

@@ -37,7 +37,6 @@ pub struct ApiResponseError {
 
 impl std::fmt::Display for ApiResponseError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        // Customize so only `x` and `y` are denoted.
         write!(
             f,
             " {:?}: {} (retry in {} seconds)",
@@ -87,17 +86,10 @@ impl TryFrom<v1::error::Reader<'_>> for ApiResponseError {
 
     // Altered to match functionality of former libnode2::vsconn::new_coded_error
     fn try_from(reader: v1::error::Reader<'_>) -> Result<Self, Self::Error> {
-        let code: ErrorCode = match reader.get_code() {
-            Ok(c) => c.into(),
-            Err(_) => ErrorCode::Internal,
-        };
-
-        let message = match reader.get_message() {
-            Ok(m) => m.to_string().unwrap(),
-            Err(_) => String::from("(no message)"),
-        };
-
+        let code: ErrorCode = reader.get_code()?.into();
+        let message = reader.get_message()?.to_string()?;
         let retry_in = reader.get_retry_in();
+
         Ok(ApiResponseError {
             code,
             message,
@@ -126,18 +118,3 @@ impl Into<v1::ErrorCode> for ErrorCode {
         }
     }
 }
-
-// /// Create a VSApiError::CodedError from a capn proto vsapi2::error::Reader.
-// /// TODO remove this, we are trying to move away from importing capnp types in this file
-// fn new_coded_error(rdr: vsapi2::error::Reader) -> VsapiTypeError {
-//     let err_code: ErrorCode = match rdr.get_code() {
-//         Ok(c) => c.into(),
-//         Err(_) => ErrorCode::Internal,
-//     };
-//     let err_msg = match rdr.get_message() {
-//         Ok(m) => m.to_string().unwrap(),
-//         Err(_) => String::from("(no message)"),
-//     };
-//     let retry = rdr.get_retry_in();
-//     VSApiError::CodedError(ApiResponseError::new(err_code, err_msg, retry))
-// }
