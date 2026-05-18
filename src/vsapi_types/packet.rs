@@ -148,6 +148,67 @@ impl PacketDesc {
         })
     }
 
+    pub fn new_tcp_with_addr(
+        source_addr: IpAddr,
+        dest_addr: IpAddr,
+        source_port: u16,
+        dest_port: u16,
+    ) -> Result<Self, VsapiTypeError> {
+        Ok(PacketDesc {
+            five_tuple: VsapiFiveTuple::new(
+                L3Type::new_from_addr(&source_addr),
+                source_addr,
+                dest_addr,
+                vsapi_ip_number::TCP,
+                source_port,
+                dest_port,
+            ),
+            comm_flags: CommFlag::BiDirectional,
+        })
+    }
+
+    pub fn new_udp_with_addr(
+        source_addr: IpAddr,
+        dest_addr: IpAddr,
+        source_port: u16,
+        dest_port: u16,
+    ) -> Result<Self, VsapiTypeError> {
+        Ok(PacketDesc {
+            five_tuple: VsapiFiveTuple::new(
+                L3Type::new_from_addr(&source_addr),
+                source_addr,
+                dest_addr,
+                vsapi_ip_number::UDP,
+                source_port,
+                dest_port,
+            ),
+            comm_flags: CommFlag::BiDirectional,
+        })
+    }
+
+    pub fn new_icmp_with_addr(
+        source_addr: IpAddr,
+        dest_addr: IpAddr,
+        icmp_type: u8,
+        icmp_code: u8,
+    ) -> Result<Self, VsapiTypeError> {
+        Ok(PacketDesc {
+            five_tuple: VsapiFiveTuple::new(
+                L3Type::new_from_addr(&source_addr),
+                source_addr,
+                dest_addr,
+                if source_addr.is_ipv4() {
+                    vsapi_ip_number::ICMP
+                } else {
+                    vsapi_ip_number::IPV6_ICMP
+                },
+                icmp_type as u16,
+                icmp_code as u16,
+            ),
+            comm_flags: CommFlag::UniDirectional,
+        })
+    }
+
     pub fn is_tcpudp(&self) -> bool {
         self.five_tuple.l4_protocol == vsapi_ip_number::TCP
             || self.five_tuple.l4_protocol == vsapi_ip_number::UDP
