@@ -3,8 +3,8 @@ use std::net::IpAddr;
 use std::time::SystemTime;
 
 use crate::vsapi::v1;
-use crate::vsapi_types::error::{ApiResponseError, ErrorCode};
-use crate::vsapi_types::{Visa, VsapiTypeError};
+use crate::vsapi_types::error::ErrorCode;
+use crate::vsapi_types::{ApiResponseError, Visa, VsapiTypeError};
 
 /// Info recieved from VS in response to ConnectRequest
 #[derive(Debug)]
@@ -13,12 +13,11 @@ pub struct Connection {
     pub auth_expires: u64,
 }
 
-/// Response to a visa request
 #[derive(Debug)]
 pub enum VisaResponse {
-    Allow(Visa),
-    Deny(Denied),
-    VSApiError(ApiResponseError),
+    Allowed(Visa),
+    Denied(Denied),
+    VsapiTypeError(ApiResponseError),
 }
 
 /// Denial information
@@ -26,6 +25,12 @@ pub enum VisaResponse {
 pub struct Denied {
     pub code: DenyCode,
     pub reason: Option<String>,
+}
+
+#[derive(Debug)]
+pub enum VisaDecision {
+    Allowed(Visa),
+    Denied(Denied),
 }
 
 /// Disconnect reason, mirrors DisconnectReason in vs.capnp
@@ -50,6 +55,13 @@ pub enum DenyCode {
     DestAuthError,
     QuotaExceeded,
     NoRoute,
+}
+
+#[derive(Debug)]
+pub struct DisconnectNotice {
+    /// None = node itself, Some = specific adapter
+    pub zpr_addr: Option<IpAddr>,
+    pub reason: DisconnectReason,
 }
 
 impl Connection {
@@ -102,17 +114,33 @@ impl TryFrom<v1::visa_response::Reader<'_>> for VisaResponse {
     fn try_from(capnp_visa_response: v1::visa_response::Reader) -> Result<Self, Self::Error> {
         match capnp_visa_response.which()? {
             v1::visa_response::Which::Allow(v) => {
-                let visa = v?;
-                Ok(Self::Allow(visa.try_into()?))
+                let cp_visa = v?;
+                let visa = Visa::try_from(cp_visa)?;
+                Ok(VisaResponse::Allowed(visa))
             }
-            v1::visa_response::Which::Deny(c) => {
-                let deny_code = DenyCode::from(c?);
-                Ok(Self::Deny(Denied::new(deny_code, None)))
+            v1::visa_response::Which::Deny(dcode) => {
+                let dcode = dcode?;
+                let deny_code = DenyCode::from(dcode);
+                Ok(VisaResponse::Denied(Denied::new(deny_code, None)))
             }
-            v1::visa_response::Which::Error(e) => {
-                let code = ErrorCode::from(e?.get_code()?);
-                Err(VsapiTypeError::CodedError(code))
+            v1::visa_response::Which::Error(err_obj) => {
+                let err_obj = err_obj?;
+                Ok(VisaResponse::VsapiTypeError(ApiResponseError::try_from(
+                    err_obj,
+                )?))
             }
+        }
+    }
+}
+
+impl TryFrom<VisaResponse> for VisaDecision {
+    type Error = ApiResponseError;
+
+    fn try_from(visa_response: VisaResponse) -> Result<Self, Self::Error> {
+        match visa_response {
+            VisaResponse::Allowed(v) => Ok(VisaDecision::Allowed(v)),
+            VisaResponse::Denied(d) => Ok(VisaDecision::Denied(d)),
+            VisaResponse::VsapiTypeError(e) => Err(e),
         }
     }
 }

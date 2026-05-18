@@ -2,6 +2,7 @@ use std::net::IpAddr;
 
 use crate::vsapi::v1;
 use crate::vsapi_types::AuthBlob;
+use crate::vsapi_types::PacketDesc;
 use crate::vsapi_types::VsapiTypeError;
 
 /// Request to connect to VS
@@ -14,6 +15,23 @@ pub struct ConnectRequest {
 }
 
 #[derive(Debug)]
+pub struct NodeConnect {
+    /// Connect will fail if this does not match policy.
+    pub zpr_addr: IpAddr,
+    pub state: StateFlag,
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StateFlag {
+    /// Visa service / node has no state for this connection.
+    #[default]
+    NoState,
+
+    /// Visa service / node has existing state for this connection.
+    HasState,
+}
+
+#[derive(Debug)]
 pub struct Claim {
     pub key: String,
     pub value: String,
@@ -23,6 +41,12 @@ impl Claim {
     pub fn new(key: String, value: String) -> Self {
         Self { key, value }
     }
+}
+
+#[derive(Debug)]
+pub struct VisaRequest {
+    pub pdesc: PacketDesc,
+    pub previous_id: Option<u64>,
 }
 
 impl TryFrom<v1::connect_request::Reader<'_>> for ConnectRequest {

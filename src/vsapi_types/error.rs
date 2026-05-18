@@ -2,34 +2,47 @@ use crate::vsapi::v1;
 use std::net::AddrParseError;
 use thiserror::Error;
 
-/// Error type
 #[derive(Debug, Error)]
 pub enum VsapiTypeError {
+    #[error("capn proto error: {0}")]
+    Capnp(#[from] capnp::Error),
+
+    #[error("capn proto not in schema: {0}")]
+    CapnpNotInSchema(#[from] capnp::NotInSchema),
+
+    #[error("string conversion error: {0}")]
+    StringConversion(#[from] std::str::Utf8Error),
+
     #[error("Serialization error {0}")]
     SerializationError(&'static str),
+
     #[error("Deserialization error: {0:?}")]
     DeserializationError(&'static str),
-    #[error("Cap'n Proto error: {0}")]
-    Capnp(#[from] capnp::Error),
-    #[error("Cap'n Proto error: {0}")]
-    NotInSchema(#[from] capnp::NotInSchema),
-    #[error("Cap'n Proto error: {0}")]
-    Utf8Error(#[from] core::str::Utf8Error),
-    #[error("Error code: {0:?}")]
-    CodedError(crate::vsapi_types::ErrorCode),
+
     #[error("IP address conversion error: {0}")]
     TryFromSliceError(#[from] std::array::TryFromSliceError),
+
     #[error("Addr Parse Error")]
     AddrParseError(#[from] AddrParseError),
 }
 
 /// Error information.
 /// Mirrors the "Error" struct in the vsapi.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub struct ApiResponseError {
     pub code: ErrorCode,
     pub message: String,
     pub retry_in: u32,
+}
+
+impl std::fmt::Display for ApiResponseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            " {:?}: {} (retry in {} seconds)",
+            self.code, self.message, self.retry_in
+        )
+    }
 }
 
 /// Denial code, match the codes in vs.capnp, except for Fail and UnknownStatusCode
@@ -71,21 +84,12 @@ impl ApiResponseError {
 impl TryFrom<v1::error::Reader<'_>> for ApiResponseError {
     type Error = VsapiTypeError;
 
+    // Altered to match functionality of former libnode2::vsconn::new_coded_error
     fn try_from(reader: v1::error::Reader<'_>) -> Result<Self, Self::Error> {
-        let code = match reader.get_code()? {
-            v1::ErrorCode::Internal => ErrorCode::Internal,
-            v1::ErrorCode::AuthRequired => ErrorCode::AuthRequired,
-            v1::ErrorCode::InvalidOperation => ErrorCode::InvalidOperation,
-            v1::ErrorCode::OutOfSync => ErrorCode::OutOfSync,
-            v1::ErrorCode::NotFound => ErrorCode::NotFound,
-            v1::ErrorCode::InvalidSignature => ErrorCode::InvalidSignature,
-            v1::ErrorCode::QuotaExceeded => ErrorCode::QuotaExceeded,
-            v1::ErrorCode::TemporarilyUnavailable => ErrorCode::TemporarilyUnavailable,
-            v1::ErrorCode::AuthError => ErrorCode::AuthError,
-            v1::ErrorCode::ParamError => ErrorCode::ParamError,
-        };
+        let code: ErrorCode = reader.get_code()?.into();
         let message = reader.get_message()?.to_string()?;
         let retry_in = reader.get_retry_in();
+
         Ok(ApiResponseError {
             code,
             message,
