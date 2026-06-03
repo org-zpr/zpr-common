@@ -145,19 +145,19 @@ impl FiveTupleLookupTable {
                     None => None,
                     Some(dst_port_table) => match dst_port_table.2 {
                         PortLookup::Wildcard(src_level) => {
-                            Self::find_src_level_match(src_level.clone(), ft)
+                            Self::find_src_level_match(&src_level, ft)
                         }
                         PortLookup::SingleVal(tuple_val) => {
                             let port = tuple_val.0;
-                            let src_level = tuple_val.1.clone();
+                            let src_level = &tuple_val.1;
                             match port == ft.dest_port {
                                 false => return None,
-                                true => return Self::find_src_level_match(src_level.clone(), ft),
+                                true => return Self::find_src_level_match(src_level, ft),
                             };
                         }
                         PortLookup::MultiVal(dst_level) => match dst_level.get(ft.dest_port) {
                             None => None,
-                            Some(src_level) => Self::find_src_level_match(src_level.clone(), ft),
+                            Some(src_level) => Self::find_src_level_match(&src_level, ft),
                         },
                     },
                 };
@@ -165,16 +165,16 @@ impl FiveTupleLookupTable {
         };
     }
 
-    fn find_src_level_match(src_level: SrcPortLookup, ft: VsapiFiveTuple) -> Option<VisaId> {
+    fn find_src_level_match(src_level: &SrcPortLookup, ft: VsapiFiveTuple) -> Option<VisaId> {
         match src_level {
-            PortLookup::Wildcard(protos) => Self::find_proto_level_match(&protos, ft.l4_protocol),
+            PortLookup::Wildcard(protos) => Self::find_proto_level_match(protos, ft.l4_protocol),
             PortLookup::SingleVal(tuple_val) => {
                 let port = tuple_val.0;
-                let protos = tuple_val.1.clone();
+                let protos = &tuple_val.1;
 
                 match port == ft.source_port {
                     false => None,
-                    true => Self::find_proto_level_match(&protos, ft.l4_protocol),
+                    true => Self::find_proto_level_match(protos, ft.l4_protocol),
                 }
             }
             PortLookup::MultiVal(src_level_map) => match src_level_map.get(ft.source_port) {
