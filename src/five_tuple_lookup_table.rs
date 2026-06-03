@@ -203,10 +203,10 @@ impl<T: Combinable + Clone + Eq + PartialEq> Combinable for PortLookup<T> {
             (PortLookup::Wildcard(level_below_wild), PortLookup::SingleVal(tuple_val))
             | (PortLookup::SingleVal(tuple_val), PortLookup::Wildcard(level_below_wild)) => {
                 let port = tuple_val.0;
-                let level_below_single = tuple_val.1.clone();
+                let level_below_single = &tuple_val.1;
                 let mut curr_level_intersection = RangeMapBlaze::new();
                 curr_level_intersection.ranges_insert(0..=65535, level_below_wild.clone());
-                let intersection = level_below_wild.combine(&level_below_single);
+                let intersection = level_below_wild.combine(level_below_single);
                 curr_level_intersection.insert(port, intersection);
                 PortLookup::MultiVal(Arc::new(curr_level_intersection))
             }
@@ -223,23 +223,23 @@ impl<T: Combinable + Clone + Eq + PartialEq> Combinable for PortLookup<T> {
             }
             (PortLookup::SingleVal(tuple_val1), PortLookup::SingleVal(tuple_val2)) => {
                 let port1 = tuple_val1.0;
-                let level_below1 = tuple_val1.1.clone();
+                let level_below1 = &tuple_val1.1;
                 let port2 = tuple_val2.0;
-                let level_below2 = tuple_val2.1.clone();
+                let level_below2 = &tuple_val2.1;
 
                 if port1 == port2 {
-                    PortLookup::SingleVal(Arc::new((port1, level_below1.combine(&level_below2))))
+                    PortLookup::SingleVal(Arc::new((port1, level_below1.combine(level_below2))))
                 } else {
                     let mut curr_level_intersection = RangeMapBlaze::new();
-                    curr_level_intersection.insert(port1, level_below1);
-                    curr_level_intersection.insert(port2, level_below2);
+                    curr_level_intersection.insert(port1, level_below1.clone());
+                    curr_level_intersection.insert(port2, level_below2.clone());
                     PortLookup::MultiVal(Arc::new(curr_level_intersection))
                 }
             }
             (PortLookup::SingleVal(tuple_val), PortLookup::MultiVal(curr_level))
             | (PortLookup::MultiVal(curr_level), PortLookup::SingleVal(tuple_val)) => {
                 let port = tuple_val.0;
-                let level_below = tuple_val.1.clone();
+                let level_below = &tuple_val.1;
                 let mut curr_level_intersection = RangeMapBlaze::new();
                 for (key, val) in curr_level.range_values() {
                     curr_level_intersection.ranges_insert(key, val.clone());
@@ -262,12 +262,11 @@ impl<T: Combinable + Clone + Eq + PartialEq> Combinable for PortLookup<T> {
                 let mut curr_existing_range = existing_ranges.next();
                 let mut inserting_iterator = curr_level2.range_values();
                 let mut curr_inserting_range = inserting_iterator.next();
-                while curr_inserting_range.is_some() {
-                    let (inserting_range, level_below2) = curr_inserting_range.clone().unwrap();
+                while let Some((ref inserting_range, level_below2)) = curr_inserting_range {
                     if let Some(ref curr) = curr_existing_range {
                         // check if the ranges overlap, if they do, insert element by element
                         if overlap(&curr, &inserting_range) {
-                            for port in inserting_range.into_iter() {
+                            for port in inserting_range.clone().into_iter() {
                                 match curr_level_intersection.insert(port, level_below2.clone()) {
                                     None => (),
                                     Some(level_below1) => {
@@ -287,7 +286,7 @@ impl<T: Combinable + Clone + Eq + PartialEq> Combinable for PortLookup<T> {
                             if inserting_range.end() < curr.start() {
                                 // Don't need to look at return value, know there will be no overlap
                                 curr_level_intersection
-                                    .ranges_insert(inserting_range, level_below2.clone());
+                                    .ranges_insert(inserting_range.clone(), level_below2.clone());
                                 // Since the inserted range somes entirely before the current existing range, we only increment the inserting range
                                 curr_inserting_range = inserting_iterator.next();
                             } else {
@@ -299,7 +298,7 @@ impl<T: Combinable + Clone + Eq + PartialEq> Combinable for PortLookup<T> {
                     } else {
                         // If the existing range is none, we have passed the end of the existing values and we know we will have no more overlap
                         curr_level_intersection
-                            .ranges_insert(inserting_range, level_below2.clone());
+                            .ranges_insert(inserting_range.clone(), level_below2.clone());
                         curr_inserting_range = inserting_iterator.next();
                     }
                 }
@@ -330,13 +329,7 @@ impl Combinable for ProtoLookup {
         }
 
         for proto_one in self.proto_vec.iter() {
-            let mut exists = false;
-            for proto_two in intersection.iter() {
-                if proto_one.proto == proto_two.proto {
-                    exists = true
-                }
-            }
-            if !exists {
+            if !intersection.iter().any(|p| p.proto == proto_one.proto) {
                 intersection.push(proto_one.clone())
             }
         }
