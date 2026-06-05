@@ -11,7 +11,7 @@ use crate::vsapi_types::{HasFiveTuple, VsapiFiveTuple, VsapiIpProtocol};
 use ip_network_table_deps_treebitmap::IpLookupTable;
 use range_set_blaze::RangeMapBlaze;
 use rcu::RcuBox;
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Entry};
 use std::net::{IpAddr, Ipv6Addr};
 use std::ops::RangeInclusive;
 use std::sync::Arc;
@@ -56,11 +56,13 @@ impl FiveTupleLookupTable {
         }
     }
 
-    pub fn build_table_from_hash<T: HasFiveTuple>(&self, visa_table: &HashMap<VisaId, T>) {
+    pub fn add_hash_to_table<T: HasFiveTuple>(&self, visa_table: &HashMap<VisaId, T>) {
         let mut dst_addr_intersection: FiveTupleLookup = HashMap::new();
+
         for (key, val) in self.table.get().iter() {
             dst_addr_intersection.insert(*key, val.clone());
         }
+
         for (visa_id, visa) in visa_table.iter() {
             Self::add_one_visa(*visa_id, visa, &mut dst_addr_intersection);
         }
@@ -80,8 +82,7 @@ impl FiveTupleLookupTable {
         let five_tuple = visa.get_five_tuple();
 
         // Create array for protocol
-        let mut arr = Vec::new();
-        arr.push(Arc::new(ProtoAndId::new(five_tuple.l4_protocol, visa_id)));
+        let arr = vec![Arc::new(ProtoAndId::new(five_tuple.l4_protocol, visa_id))];
 
         // Determine which enum to use for src level
         let src_level: SrcPortLookup = match five_tuple.source_port {
@@ -103,30 +104,30 @@ impl FiveTupleLookupTable {
             IpAddr::V6(addr) => ip_table.insert(addr, 128, dst_level),
         };
 
-        // Try to add to hash table, if there is a collision, combine the tables, then add the combined table
-        match table.insert(five_tuple.dest_addr, Arc::new(ip_table)) {
-            None => (),
-            Some(removed_src_addrs) => {
-                let in_table_src_addrs = table.get(&five_tuple.dest_addr).unwrap();
-                // Create intersection that has the dst port levels from both the src addrs currently in the table and those that were removed
-                let mut intersection = IpLookupTable::new();
-                for (addr, mask_len, val) in in_table_src_addrs.iter() {
-                    intersection.insert(addr, mask_len, val.clone());
-                }
-                for (og_src_addr, og_mask_len, og_dst_ports) in removed_src_addrs.iter() {
-                    // Try to add a source addresses, If the src address is already being used as a key, combine its dst port tables
-                    match intersection.insert(og_src_addr, og_mask_len, og_dst_ports.clone()) {
+        // Check if an entry for given addr exists in the table, if not add the new visa. If there is a collision, combine the tables, then add
+        match table.entry(five_tuple.dest_addr) {
+            Entry::Vacant(empty_entry) => {
+                empty_entry.insert(Arc::new(ip_table));
+            }
+            Entry::Occupied(mut filled_entry) => {
+                let existing_src_addrs = filled_entry.get();
+                // Add the addrs that are already in the table into the new ip_table, addressing collisions for each insertion
+                for (existing_src_addr, existing_mask_len, existing_dst_ports) in
+                    existing_src_addrs.iter()
+                {
+                    match ip_table.insert(
+                        existing_src_addr,
+                        existing_mask_len,
+                        existing_dst_ports.clone(),
+                    ) {
                         None => (),
-                        Some(removed_dst_ports) => {
-                            let in_table_dst_ports =
-                                intersection.exact_match(og_src_addr, og_mask_len).unwrap();
-                            let new_dst_level = removed_dst_ports.combine(&in_table_dst_ports);
-                            intersection.insert(og_src_addr, og_mask_len, new_dst_level);
+                        Some(removed_dst_level) => {
+                            let combined = removed_dst_level.combine(existing_dst_ports);
+                            ip_table.insert(existing_src_addr, existing_mask_len, combined);
                         }
                     }
                 }
-                // Add the intersection of source addresses to the bucket of the proper dst address
-                table.insert(five_tuple.dest_addr, Arc::new(intersection));
+                filled_entry.insert(Arc::new(ip_table));
             }
         }
     }
@@ -144,19 +145,19 @@ impl FiveTupleLookupTable {
                     None => None,
                     Some(dst_port_table) => match dst_port_table.2 {
                         PortLookup::Wildcard(src_level) => {
-                            Self::find_src_level_match(src_level.clone(), ft)
+                            Self::find_src_level_match(&src_level, ft)
                         }
                         PortLookup::SingleVal(tuple_val) => {
                             let port = tuple_val.0;
-                            let src_level = tuple_val.1.clone();
+                            let src_level = &tuple_val.1;
                             match port == ft.dest_port {
                                 false => return None,
-                                true => return Self::find_src_level_match(src_level.clone(), ft),
+                                true => return Self::find_src_level_match(src_level, ft),
                             };
                         }
                         PortLookup::MultiVal(dst_level) => match dst_level.get(ft.dest_port) {
                             None => None,
-                            Some(src_level) => Self::find_src_level_match(src_level.clone(), ft),
+                            Some(src_level) => Self::find_src_level_match(&src_level, ft),
                         },
                     },
                 };
@@ -164,16 +165,16 @@ impl FiveTupleLookupTable {
         };
     }
 
-    fn find_src_level_match(src_level: SrcPortLookup, ft: VsapiFiveTuple) -> Option<VisaId> {
+    fn find_src_level_match(src_level: &SrcPortLookup, ft: VsapiFiveTuple) -> Option<VisaId> {
         match src_level {
-            PortLookup::Wildcard(protos) => Self::find_proto_level_match(&protos, ft.l4_protocol),
+            PortLookup::Wildcard(protos) => Self::find_proto_level_match(protos, ft.l4_protocol),
             PortLookup::SingleVal(tuple_val) => {
                 let port = tuple_val.0;
-                let protos = tuple_val.1.clone();
+                let protos = &tuple_val.1;
 
                 match port == ft.source_port {
                     false => None,
-                    true => Self::find_proto_level_match(&protos, ft.l4_protocol),
+                    true => Self::find_proto_level_match(protos, ft.l4_protocol),
                 }
             }
             PortLookup::MultiVal(src_level_map) => match src_level_map.get(ft.source_port) {
@@ -202,10 +203,10 @@ impl<T: Combinable + Clone + Eq + PartialEq> Combinable for PortLookup<T> {
             (PortLookup::Wildcard(level_below_wild), PortLookup::SingleVal(tuple_val))
             | (PortLookup::SingleVal(tuple_val), PortLookup::Wildcard(level_below_wild)) => {
                 let port = tuple_val.0;
-                let level_below_single = tuple_val.1.clone();
+                let level_below_single = &tuple_val.1;
                 let mut curr_level_intersection = RangeMapBlaze::new();
                 curr_level_intersection.ranges_insert(0..=65535, level_below_wild.clone());
-                let intersection = level_below_wild.combine(&level_below_single);
+                let intersection = level_below_wild.combine(level_below_single);
                 curr_level_intersection.insert(port, intersection);
                 PortLookup::MultiVal(Arc::new(curr_level_intersection))
             }
@@ -222,23 +223,23 @@ impl<T: Combinable + Clone + Eq + PartialEq> Combinable for PortLookup<T> {
             }
             (PortLookup::SingleVal(tuple_val1), PortLookup::SingleVal(tuple_val2)) => {
                 let port1 = tuple_val1.0;
-                let level_below1 = tuple_val1.1.clone();
+                let level_below1 = &tuple_val1.1;
                 let port2 = tuple_val2.0;
-                let level_below2 = tuple_val2.1.clone();
+                let level_below2 = &tuple_val2.1;
 
                 if port1 == port2 {
-                    PortLookup::SingleVal(Arc::new((port1, level_below1.combine(&level_below2))))
+                    PortLookup::SingleVal(Arc::new((port1, level_below1.combine(level_below2))))
                 } else {
                     let mut curr_level_intersection = RangeMapBlaze::new();
-                    curr_level_intersection.insert(port1, level_below1);
-                    curr_level_intersection.insert(port2, level_below2);
+                    curr_level_intersection.insert(port1, level_below1.clone());
+                    curr_level_intersection.insert(port2, level_below2.clone());
                     PortLookup::MultiVal(Arc::new(curr_level_intersection))
                 }
             }
             (PortLookup::SingleVal(tuple_val), PortLookup::MultiVal(curr_level))
             | (PortLookup::MultiVal(curr_level), PortLookup::SingleVal(tuple_val)) => {
                 let port = tuple_val.0;
-                let level_below = tuple_val.1.clone();
+                let level_below = &tuple_val.1;
                 let mut curr_level_intersection = RangeMapBlaze::new();
                 for (key, val) in curr_level.range_values() {
                     curr_level_intersection.ranges_insert(key, val.clone());
@@ -261,12 +262,11 @@ impl<T: Combinable + Clone + Eq + PartialEq> Combinable for PortLookup<T> {
                 let mut curr_existing_range = existing_ranges.next();
                 let mut inserting_iterator = curr_level2.range_values();
                 let mut curr_inserting_range = inserting_iterator.next();
-                while curr_inserting_range.is_some() {
-                    let (inserting_range, level_below2) = curr_inserting_range.clone().unwrap();
+                while let Some((ref inserting_range, level_below2)) = curr_inserting_range {
                     if let Some(ref curr) = curr_existing_range {
                         // check if the ranges overlap, if they do, insert element by element
                         if overlap(&curr, &inserting_range) {
-                            for port in inserting_range.into_iter() {
+                            for port in inserting_range.clone().into_iter() {
                                 match curr_level_intersection.insert(port, level_below2.clone()) {
                                     None => (),
                                     Some(level_below1) => {
@@ -286,7 +286,7 @@ impl<T: Combinable + Clone + Eq + PartialEq> Combinable for PortLookup<T> {
                             if inserting_range.end() < curr.start() {
                                 // Don't need to look at return value, know there will be no overlap
                                 curr_level_intersection
-                                    .ranges_insert(inserting_range, level_below2.clone());
+                                    .ranges_insert(inserting_range.clone(), level_below2.clone());
                                 // Since the inserted range somes entirely before the current existing range, we only increment the inserting range
                                 curr_inserting_range = inserting_iterator.next();
                             } else {
@@ -298,7 +298,7 @@ impl<T: Combinable + Clone + Eq + PartialEq> Combinable for PortLookup<T> {
                     } else {
                         // If the existing range is none, we have passed the end of the existing values and we know we will have no more overlap
                         curr_level_intersection
-                            .ranges_insert(inserting_range, level_below2.clone());
+                            .ranges_insert(inserting_range.clone(), level_below2.clone());
                         curr_inserting_range = inserting_iterator.next();
                     }
                 }
@@ -329,13 +329,7 @@ impl Combinable for ProtoLookup {
         }
 
         for proto_one in self.proto_vec.iter() {
-            let mut exists = false;
-            for proto_two in intersection.iter() {
-                if proto_one.proto == proto_two.proto {
-                    exists = true
-                }
-            }
-            if !exists {
+            if !intersection.iter().any(|p| p.proto == proto_one.proto) {
                 intersection.push(proto_one.clone())
             }
         }
@@ -389,7 +383,7 @@ mod tests {
         hash.insert(12, v);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         let un_rcu_table = table.table.get();
 
@@ -452,7 +446,7 @@ mod tests {
         hash.insert(13, v2);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         let un_rcu_table = table.table.get();
 
@@ -532,7 +526,7 @@ mod tests {
         hash.insert(13, v2);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         let un_rcu_table = table.table.get();
 
@@ -648,7 +642,7 @@ mod tests {
         hash.insert(13, v2);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         let un_rcu_table = table.table.get();
 
@@ -733,7 +727,7 @@ mod tests {
         hash.insert(13, v2);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         let un_rcu_table = table.table.get();
 
@@ -836,7 +830,7 @@ mod tests {
         hash.insert(13, v2);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         let un_rcu_table = table.table.get();
 
@@ -944,7 +938,7 @@ mod tests {
         hash.insert(12, v);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         assert_eq!(table.find_match(ft), Some(12))
     }
@@ -987,7 +981,7 @@ mod tests {
         hash.insert(19, v_diff_dst_addr);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         assert_eq!(table.find_match(ft), None);
     }
@@ -1006,7 +1000,7 @@ mod tests {
         let mut hash: HashMap<VisaId, VsapiFiveTuple> = HashMap::new();
         hash.insert(15, v);
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         let src_port_diff = 13;
         let dst_port_diff = 14;
@@ -1099,7 +1093,7 @@ mod tests {
         hash.insert(19, v_diff_dst_addr);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         let ft_diff_proto = VsapiFiveTuple::new(
             L3Type::Ipv6,
@@ -1165,7 +1159,7 @@ mod tests {
         hash.insert(12, v);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         let ft1 = VsapiFiveTuple::new(
             L3Type::Ipv6,
@@ -1254,7 +1248,7 @@ mod tests {
         hash.insert(12, v);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         let ft1 = VsapiFiveTuple::new(
             L3Type::Ipv6,
@@ -1348,7 +1342,7 @@ mod tests {
         hash.insert(13, v2);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         let un_rcu_table = table.table.get();
 
@@ -1425,7 +1419,7 @@ mod tests {
         hash.insert(12, v1);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         let un_rcu_table = table.table.get();
 
@@ -1518,7 +1512,7 @@ mod tests {
         hash.insert(16, v_diff_src_port);
 
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
 
         table.insert_visa(17, v_diff_dst_port);
         table.insert_visa(18, v_diff_src_addr);

@@ -79,7 +79,7 @@ mod bench_impl {
             ));
         }
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
         (table, fts)
     }
 
@@ -119,7 +119,7 @@ mod bench_impl {
             ));
         }
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
         (table, fts)
     }
 
@@ -147,7 +147,7 @@ mod bench_impl {
             ));
         }
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
         (table, fts)
     }
 
@@ -187,7 +187,7 @@ mod bench_impl {
             ));
         }
         let table = FiveTupleLookupTable::new();
-        table.build_table_from_hash(&hash);
+        table.add_hash_to_table(&hash);
         (table, fts)
     }
 
@@ -310,7 +310,7 @@ mod bench_impl {
             group.bench_with_input(BenchmarkId::from_parameter(n), &hash, |b, h| {
                 b.iter(|| {
                     let table = FiveTupleLookupTable::new();
-                    table.build_table_from_hash(h);
+                    table.add_hash_to_table(h);
                 });
             });
         }
@@ -348,7 +348,7 @@ mod bench_impl {
                 b.iter_batched(
                     || {
                         let table = FiveTupleLookupTable::new();
-                        table.build_table_from_hash(&hash);
+                        table.add_hash_to_table(&hash);
                         (table, new_visa.clone())
                     },
                     |(table, visa)| table.insert_visa(9999, visa),
