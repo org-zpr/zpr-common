@@ -43,8 +43,7 @@ pub type StreamId = u32;
 pub struct ForwardingEntry(pub LinkId, pub StreamId);
 
 /// Visa ID
-// TODO: Generate from Thrift instead?
-pub type VisaId = i32;
+pub type VisaId = u64;
 
 // TODO: Get rid of this?
 pub const SPECIAL_VISA_ID: VisaId = 0;
