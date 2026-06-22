@@ -23,7 +23,8 @@ pub use packet::{
 };
 pub use param::{Param, ParamValue, pname};
 pub use request::{
-    Claim, ConnectRequest, ConnectType, NodeConnect, StateFlag, VSConnectRequest, VisaRequest,
+    Claim, ConnectRequest, ConnectType, NodeConnect, NodeOpen, StateFlag, VSConnectRequest,
+    VisaRequest,
 };
 pub use response::{
     Connection, Denied, DenyCode, DisconnectNotice, DisconnectReason, VisaDecision, VisaResponse,

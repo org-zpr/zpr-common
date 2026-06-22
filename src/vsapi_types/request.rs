@@ -22,6 +22,11 @@ pub struct NodeConnect {
     pub state: StateFlag,
 }
 
+#[derive(Debug)]
+pub struct NodeOpen {
+    pub state: StateFlag,
+}
+
 /// Wraps the Cap'n Proto `VSConnT` enum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConnectType {
