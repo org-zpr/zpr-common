@@ -4,7 +4,8 @@ use crate::vsapi::v1;
 use crate::vsapi_types::{
     ApiResponseError, AuthBlob, ChallengeAlg, Claim, CommFlag, ConnectRequest, Connection, DockPep,
     DockPepType, EndpointT, FwdPep, FwdPepStyle, IcmpPep, KeySet, Link, LinkRole, PacketDesc,
-    Param, ParamValue, ServiceDescriptor, SockAddr, TcpUdpPep, Visa, VisaOp, VisaType,
+    Param, ParamValue, ServiceDescriptor, SockAddr, TcpUdpPep, VSConnectRequest, Visa, VisaOp,
+    VisaType,
 };
 use crate::write_to::WriteTo;
 
@@ -240,6 +241,20 @@ impl WriteTo<v1::connect_request::Builder<'_>> for ConnectRequest {
         let mut ip_bldr = bldr.reborrow().init_substrate_addr();
         self.substrate_addr.write_to(&mut ip_bldr);
         bldr.set_dock_interface(self.dock_interface);
+    }
+}
+
+impl WriteTo<v1::v_s_connect_request::Builder<'_>> for VSConnectRequest {
+    fn write_to(&self, bldr: &mut v1::v_s_connect_request::Builder<'_>) {
+        bldr.set_cn(&self.cn);
+        bldr.set_ctype(self.ctype.into());
+        if let Some(params) = &self.params {
+            let mut params_bldr = bldr.reborrow().init_params(params.len() as u32);
+            for (i, param) in params.iter().enumerate() {
+                let mut param_bldr = params_bldr.reborrow().get(i as u32);
+                param.write_to(&mut param_bldr);
+            }
+        }
     }
 }
 
