@@ -15,18 +15,6 @@ pub struct ConnectRequest {
     pub dock_interface: u8,
 }
 
-#[derive(Debug)]
-pub struct NodeConnect {
-    /// Connect will fail if this does not match policy.
-    pub zpr_addr: IpAddr,
-    pub state: StateFlag,
-}
-
-#[derive(Debug)]
-pub struct NodeOpen {
-    pub state: StateFlag,
-}
-
 /// Wraps the Cap'n Proto `VSConnT` enum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConnectType {
@@ -38,17 +26,7 @@ pub enum ConnectType {
 pub struct VSConnectRequest {
     pub cn: String,
     pub ctype: ConnectType,
-    pub params: Vec<Param>,
-}
-
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StateFlag {
-    /// Visa service / node has no state for this connection.
-    #[default]
-    NoState,
-
-    /// Visa service / node has existing state for this connection.
-    HasState,
+    pub params: Option<Vec<Param>>,
 }
 
 #[derive(Debug)]
@@ -67,16 +45,6 @@ impl Claim {
 pub struct VisaRequest {
     pub pdesc: PacketDesc,
     pub previous_id: Option<u64>,
-}
-
-impl StateFlag {
-    /// Derive the state flag value from the connection type.
-    pub fn new_from_connect_type(ctype: ConnectType) -> Self {
-        match ctype {
-            ConnectType::Reset => StateFlag::NoState,
-            ConnectType::Reconnect => StateFlag::HasState,
-        }
-    }
 }
 
 impl TryFrom<v1::connect_request::Reader<'_>> for ConnectRequest {
@@ -116,13 +84,17 @@ impl TryFrom<v1::v_s_connect_request::Reader<'_>> for VSConnectRequest {
         let cn = reader.get_cn()?.to_string()?;
         let ctype = ConnectType::from(reader.get_ctype()?);
         let params = {
-            let mut params = Vec::new();
-            let param_readers = reader.get_params()?;
-            for param_reader in param_readers.iter() {
-                let param = Param::try_from(param_reader)?;
-                params.push(param);
+            if reader.has_params() {
+                let mut params = Vec::new();
+                let param_readers = reader.get_params()?;
+                for param_reader in param_readers.iter() {
+                    let param = Param::try_from(param_reader)?;
+                    params.push(param);
+                }
+                Some(params)
+            } else {
+                None
             }
-            params
         };
 
         Ok(VSConnectRequest { cn, ctype, params })
@@ -174,10 +146,12 @@ mod tests {
             let mut root: v1::v_s_connect_request::Builder<'_> = msg.init_root();
             root.set_cn(cn);
             root.set_ctype(ctype);
-            let mut params_bldr = root.reborrow().init_params(params.len() as u32);
-            for (i, param) in params.iter().enumerate() {
-                let mut param_bldr = params_bldr.reborrow().get(i as u32);
-                param.write_to(&mut param_bldr);
+            if !params.is_empty() {
+                let mut params_bldr = root.reborrow().init_params(params.len() as u32);
+                for (i, param) in params.iter().enumerate() {
+                    let mut param_bldr = params_bldr.reborrow().get(i as u32);
+                    param.write_to(&mut param_bldr);
+                }
             }
         }
         msg
@@ -206,7 +180,7 @@ mod tests {
 
         assert_eq!(req.cn, "actor.example");
         assert_eq!(req.ctype, ConnectType::Reset);
-        assert!(req.params.is_empty());
+        assert!(req.params.is_none());
     }
 
     #[test]
@@ -224,14 +198,16 @@ mod tests {
 
         assert_eq!(req.cn, "actor.example");
         assert_eq!(req.ctype, ConnectType::Reconnect);
-        assert_eq!(req.params.len(), 3);
+        assert!(req.params.is_some());
+        let params = req.params.as_ref().unwrap();
+        assert_eq!(params.len(), 3);
         assert!(matches!(
-            req.params[0].value,
+            params[0].value,
             ParamValue::StrParam(ref value) if value == "bootstrap"
         ));
-        assert!(matches!(req.params[1].value, ParamValue::U64Param(42)));
+        assert!(matches!(params[1].value, ParamValue::U64Param(42)));
         assert!(matches!(
-            req.params[2].value,
+            params[2].value,
             ParamValue::IpParam(IpAddr::V4(addr)) if addr == Ipv4Addr::new(10, 20, 30, 40)
         ));
     }
@@ -241,13 +217,13 @@ mod tests {
         let original = VSConnectRequest {
             cn: "actor.example".to_string(),
             ctype: ConnectType::Reset,
-            params: Vec::new(),
+            params: None,
         };
         let result = roundtrip_vs_connect_request(&original);
 
         assert_eq!(result.cn, original.cn);
         assert_eq!(result.ctype, original.ctype);
-        assert!(result.params.is_empty());
+        assert!(result.params.is_none());
     }
 
     #[test]
@@ -255,23 +231,22 @@ mod tests {
         let original = VSConnectRequest {
             cn: "actor.example".to_string(),
             ctype: ConnectType::Reconnect,
-            params: vec![
+            params: Some(vec![
                 Param::new_str("mode".to_string(), "resume".to_string()),
                 Param::new_u64("generation".to_string(), u64::MAX),
-            ],
+            ]),
         };
         let result = roundtrip_vs_connect_request(&original);
 
         assert_eq!(result.cn, original.cn);
         assert_eq!(result.ctype, original.ctype);
-        assert_eq!(result.params.len(), 2);
+        assert!(result.params.is_some());
+        let params = result.params.as_ref().unwrap();
+        assert_eq!(params.len(), 2);
         assert!(matches!(
-            result.params[0].value,
+            params[0].value,
             ParamValue::StrParam(ref value) if value == "resume"
         ));
-        assert!(matches!(
-            result.params[1].value,
-            ParamValue::U64Param(u64::MAX)
-        ));
+        assert!(matches!(params[1].value, ParamValue::U64Param(u64::MAX)));
     }
 }
