@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use crate::packet_info::L3Type;
@@ -28,7 +29,7 @@ pub enum CommFlag {
 }
 
 /// FiveTuple representation
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct VsapiFiveTuple {
     pub source_addr: IpAddr,
     pub dest_addr: IpAddr,
