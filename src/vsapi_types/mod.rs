@@ -196,7 +196,8 @@ mod tests {
             None,
         );
 
-        let round_tripped = visa_expiration_timestamp_to_system_time(visa.get_expiration_timestamp());
+        let round_tripped =
+            visa_expiration_timestamp_to_system_time(visa.get_expiration_timestamp());
         assert_eq!(round_tripped, expires);
     }
 }
