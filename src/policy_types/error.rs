@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::policy_types::trusted_service::AttrMappingError;
+
 #[derive(Debug, Error)]
 pub enum AttributeError {
     #[error("Invalid attribute domain: {0}")]
@@ -34,4 +36,7 @@ pub enum PolicyTypeError {
 
     #[error("IP address parse error: {0}")]
     AddrParseError(#[from] std::net::AddrParseError),
+
+    #[error("attribute mapping error: {0}")]
+    AttrMapping(#[from] AttrMappingError),
 }
