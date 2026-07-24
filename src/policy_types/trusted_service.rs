@@ -4,44 +4,10 @@
 //! directions (`TryFrom<Reader>` to decode, `WriteTo<Builder>` to encode) so the compiler
 //! (encode), `zpdump`, and the Visa Service (decode) all share one representation.
 
-use thiserror::Error;
-
 use crate::policy::v1;
 use crate::policy_types::attribute::Attribute;
-use crate::policy_types::error::AttributeError;
+use crate::policy_types::error::AttrMappingError;
 use crate::write_to::WriteTo;
-
-/// Characters permitted in a service attribute key and in a decoded ZPR attribute key.
-/// Until the Visa Service supports quoted names we restrict to this whitelist.
-const VALID_ATTR_CHARS: &str =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-./";
-
-#[derive(Debug, Error)]
-pub enum AttrMappingError {
-    #[error(
-        "invalid attribute mapping '{0}', must be of the form '<service-key-name> -> <attribute-spec>'"
-    )]
-    InvalidFormat(String),
-
-    #[error("attribute mapping '{mapping}' has an empty {side}")]
-    EmptySide {
-        mapping: String,
-        side: &'static str,
-    },
-
-    #[error("invalid attribute name '{name}' in mapping '{mapping}', contains invalid character '{ch}'")]
-    InvalidChar {
-        name: String,
-        mapping: String,
-        ch: char,
-    },
-
-    #[error("attribute error in mapping '{mapping}': {source}")]
-    Attribute {
-        mapping: String,
-        source: AttributeError,
-    },
-}
 
 /// Shadows the cap'n proto `AttrMapping` struct. One entry of a trusted service's
 /// `returns_attributes` mapping.
@@ -65,21 +31,6 @@ pub struct TrustedService {
     pub identity_attrs: Vec<String>,
 }
 
-/// Validate that every character of `name` is in the whitelist, for diagnostics tie it to
-/// the whole `mapping` string.
-fn validate_attr_chars(name: &str, mapping: &str) -> Result<(), AttrMappingError> {
-    for c in name.chars() {
-        if !VALID_ATTR_CHARS.contains(c) {
-            return Err(AttrMappingError::InvalidChar {
-                name: name.to_string(),
-                mapping: mapping.to_string(),
-                ch: c,
-            });
-        }
-    }
-    Ok(())
-}
-
 /// Decode a trimmed RHS attribute spec into an `Attribute`.
 ///
 /// The spec is one of:
@@ -101,14 +52,14 @@ fn parse_attr_spec(spec: &str, mapping: &str) -> Result<Attribute, AttrMappingEr
         source,
     })?;
 
-    validate_attr_chars(&attr.zpl_key(), mapping)?;
     Ok(attr)
 }
 
 /// Parse a `"<service-key-name> -> <attribute-spec>"` mapping string.
 ///
 /// Requires exactly one `->` delimiter; trims both sides and rejects an empty service key or
-/// spec; restricts the service key and decoded ZPR key to `[A-Za-z0-9_./-]+`.
+/// spec. Attribute names are not otherwise restricted — any valid ZPL name (including quoted
+/// names) is accepted; the RHS spec's validity is enforced by the `Attribute` builder.
 pub fn parse_attribute_mapping(mapping: &str) -> Result<AttrMapping, AttrMappingError> {
     let (lhs, rhs) = mapping
         .split_once("->")
@@ -134,7 +85,6 @@ pub fn parse_attribute_mapping(mapping: &str) -> Result<AttrMapping, AttrMapping
         });
     }
 
-    validate_attr_chars(&service_attr_key, mapping)?;
     let attr = parse_attr_spec(&zpr_attr_spec, mapping)?;
 
     Ok(AttrMapping {
@@ -313,26 +263,34 @@ mod test {
     #[test]
     fn test_parse_attribute_mapping_empty_service_key() {
         let e = parse_attribute_mapping("  -> user.name").unwrap_err();
-        assert!(matches!(e, AttrMappingError::EmptySide { side: "service key", .. }));
+        assert!(matches!(
+            e,
+            AttrMappingError::EmptySide {
+                side: "service key",
+                ..
+            }
+        ));
     }
 
     #[test]
     fn test_parse_attribute_mapping_empty_spec() {
         let e = parse_attribute_mapping("service_key ->   ").unwrap_err();
-        assert!(matches!(e, AttrMappingError::EmptySide { side: "attribute spec", .. }));
+        assert!(matches!(
+            e,
+            AttrMappingError::EmptySide {
+                side: "attribute spec",
+                ..
+            }
+        ));
     }
 
     #[test]
-    fn test_parse_attribute_mapping_invalid_char_in_spec() {
-        // '!' is not in the whitelist
-        let e = parse_attribute_mapping("service_key -> user.na!me").unwrap_err();
-        assert!(matches!(e, AttrMappingError::InvalidChar { ch: '!', .. }));
-    }
-
-    #[test]
-    fn test_parse_attribute_mapping_invalid_char_in_service_key() {
-        let e = parse_attribute_mapping("bad key -> user.name").unwrap_err();
-        assert!(matches!(e, AttrMappingError::InvalidChar { ch: ' ', .. }));
+    fn test_parse_attribute_mapping_service_key_is_unrestricted() {
+        // The service's own name for the attribute is arbitrary external text; spaces and
+        // other characters are accepted verbatim (no whitelist).
+        let m = parse_attribute_mapping("has spaces & punctuation! -> user.name").unwrap();
+        assert_eq!(m.service_attr_key, "has spaces & punctuation!");
+        assert_eq!(m.zpr_attr_spec, "user.name");
     }
 
     // --- AttrMapping roundtrip (WriteTo + TryFrom) ---
