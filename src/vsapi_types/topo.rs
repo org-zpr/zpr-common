@@ -1,5 +1,6 @@
 use crate::vsapi::v1;
 use crate::vsapi_types::{SockAddr, Visa, VsapiTypeError};
+use std::net::IpAddr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LinkRole {
@@ -13,6 +14,8 @@ pub struct Link {
     pub peer: SockAddr,
     pub role: LinkRole,
     pub visas: Vec<Visa>,
+    /// ZPR address of the peer. `None` when the sender predates the field.
+    pub zpr_addr: Option<IpAddr>,
 }
 
 impl From<v1::LinkRole> for LinkRole {
@@ -31,6 +34,12 @@ impl TryFrom<v1::link::Reader<'_>> for Link {
         let link_id = reader.get_link_id()?.to_string()?;
         let peer = SockAddr::try_from(reader.get_peer()?)?;
         let role = LinkRole::from(reader.get_role()?);
+        // Optional on the wire: older senders do not set it.
+        let zpr_addr = if reader.has_zpr_addr() {
+            Some(IpAddr::try_from(reader.get_zpr_addr()?)?)
+        } else {
+            None
+        };
 
         let mut visas = Vec::new();
         for visa_reader in reader.get_visas()?.iter() {
@@ -42,6 +51,7 @@ impl TryFrom<v1::link::Reader<'_>> for Link {
             peer,
             role,
             visas,
+            zpr_addr,
         })
     }
 }
@@ -174,6 +184,7 @@ mod tests {
             },
             role: LinkRole::Active,
             visas: vec![],
+            zpr_addr: None,
         };
         let result = roundtrip_link(&original);
         assert_eq!(result, original);
@@ -191,9 +202,40 @@ mod tests {
             },
             role: LinkRole::Backup,
             visas: vec![make_visa(7), make_visa(8)],
+            zpr_addr: Some(IpAddr::V6("fd5a:5052::7".parse().unwrap())),
         };
         let result = roundtrip_link(&original);
         assert_eq!(result, original);
+    }
+
+    // A Link with zpr_addr set must carry it through a capnp write/read roundtrip.
+    #[test]
+    fn test_link_roundtrip_zpr_addr_present() {
+        let zpr_ip: IpAddr = "fd5a:5052::42".parse().unwrap();
+        let original = Link {
+            link_id: "rt-zpr-addr".to_string(),
+            peer: SockAddr {
+                addr: IpAddr::V4(Ipv4Addr::new(10, 0, 0, 9)),
+                port: 4500,
+            },
+            role: LinkRole::Active,
+            visas: vec![],
+            zpr_addr: Some(zpr_ip),
+        };
+        let result = roundtrip_link(&original);
+        assert_eq!(result.zpr_addr, Some(zpr_ip));
+        assert_eq!(result, original);
+    }
+
+    // A message built without zprAddr (as an older sender would emit) must read
+    // back as zpr_addr == None rather than erroring or fabricating an address.
+    #[test]
+    fn test_link_tryfrom_zpr_addr_absent() {
+        let ip = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1));
+        let msg = make_link_msg("link-no-zpr-addr", ip, 4500, v1::LinkRole::Active);
+        let reader: v1::link::Reader<'_> = msg.get_root_as_reader().unwrap();
+        let link = Link::try_from(reader).unwrap();
+        assert_eq!(link.zpr_addr, None);
     }
 
     #[test]
